@@ -18,12 +18,21 @@ from typing import Any
 from .events import Event, utcnow
 from .provenance import ProvenanceRecord, content_hash
 
-ARTIFACT_SCHEMA_VERSION = "0.1.0"
+ARTIFACT_SCHEMA_VERSION = "0.2.0"
 
 
 @dataclass
 class AssuranceArtifact:
-    """Machine-readable record of one AI-mediated clinical interaction."""
+    """Machine-readable record of one AI-mediated clinical interaction.
+
+    ``correlation`` ties together multiple observers of the same
+    interaction: every artifact carries an ``interaction_id`` shared
+    across observers, the ``observer`` that produced this view, and a
+    ``role`` — ``partial`` (one observer's vantage point; every
+    single-observer artifact is by definition partial) or ``merged``
+    (assembled from several partials by :func:`metaxu.merge_artifacts`,
+    which also records ``merged_from``).
+    """
 
     question: str
     answer: str | None = None
@@ -36,6 +45,7 @@ class AssuranceArtifact:
     trust_scores: dict[str, dict[str, Any]] = field(default_factory=dict)
     reproducibility: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
+    correlation: dict[str, Any] = field(default_factory=dict)
     events: list[Event] = field(default_factory=list)
     id: str = field(default_factory=lambda: f"axa-{uuid.uuid4()}")
     created_at: str = field(default_factory=utcnow)
@@ -57,6 +67,7 @@ class AssuranceArtifact:
             "trust_scores": self.trust_scores,
             "reproducibility": self.reproducibility,
             "metadata": self.metadata,
+            "correlation": self.correlation,
             "events": [e.to_dict() for e in self.events],
         }
         # Integrity hash covers every field above; consumers can detect
@@ -85,6 +96,7 @@ class AssuranceArtifact:
             trust_scores=data.get("trust_scores", {}),
             reproducibility=data.get("reproducibility", {}),
             metadata=data.get("metadata", {}),
+            correlation=data.get("correlation", {}),
             events=[Event.from_dict(e) for e in data.get("events", [])],
             id=data["id"],
             created_at=data["created_at"],

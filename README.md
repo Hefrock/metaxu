@@ -142,6 +142,31 @@ A transparent proxy can't see claims, evidence links, or the final answer
 — those never cross the MCP wire. The proxy is the zero-effort floor;
 SDK instrumentation is the ceiling.
 
+## Composing observers: correlation and merge
+
+No single interception point sees a whole interaction, so artifacts are
+designed to be **assembled from multiple observers**. Every observer of
+one interaction shares an `interaction_id` (set `METAXU_INTERACTION_ID`
+in the environment, or pass `interaction_id=`/`--interaction-id`), each
+produces a *partial* artifact, and:
+
+```bash
+metaxu merge sdk-artifact.json proxy-artifact.json -o merged.json --policies policies.json
+```
+
+produces one *merged* artifact. A merge is a **re-evaluation, not a
+concatenation**: events and provenance are unioned, then the policy,
+safety, and trust engines run again over the combined observations — so a
+policy that failed on every partial view (the proxy never saw the
+platelet check; the SDK session never saw the allergy tool) can rightly
+pass on the merged view. Conflicting observations are never silently
+resolved; they're preserved in `metadata["dev.metaxu/merge_conflicts"]`.
+
+MCP is one adapter, not the interface: the core is transport-neutral, and
+adapters (`metaxu.adapters`) attach it to specific boundaries — MCP
+today; OpenTelemetry, CDS Hooks, and LLM gateways are the planned next
+vantage points.
+
 Policies are declarative data, shareable across institutions:
 
 ```json
@@ -196,6 +221,8 @@ Design commitments:
 metaxu inspect  artifact.json                     # human-readable summary
 metaxu validate artifact.json                     # JSON Schema validation
 metaxu verify   artifact.json --snapshots dir/    # integrity + provenance re-hashing
+metaxu mcp-proxy --out dir/ -- <server cmd>       # wrap an MCP server transparently
+metaxu merge a.json b.json -o merged.json         # combine observers of one interaction
 ```
 
 `verify` recomputes content hashes of the resources the AI saw. A
@@ -205,8 +232,11 @@ exactly the drift a reviewing clinician needs to know about.
 ## Roadmap
 
 - [x] MCP proxy that instruments any MCP server transparently
+- [x] Multi-observer correlation and artifact merging
+- [ ] OpenTelemetry adapter (events ↔ spans; map to GenAI semantic conventions)
+- [ ] CDS Hooks / SMART on FHIR adapter (the healthcare-native decision surface)
+- [ ] LLM API gateway adapter (closes the answer/claims blind spot without SDK adoption)
 - [ ] Detached-signature envelope for artifact authentication
-- [ ] OpenTelemetry exporter (events → spans) and importer
 - [ ] Terminology validation checks (SNOMED / LOINC / RxNorm / UCUM)
 - [ ] Temporal-reasoning checks (newest labs, discontinued medications)
 - [ ] Benchmark scenario pack with reference artifacts

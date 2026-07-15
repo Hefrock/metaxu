@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://metaxu.dev/spec/assurance-artifact/0.1.0/schema.json",
+  "$id": "https://metaxu.dev/spec/assurance-artifact/0.2.0/schema.json",
   "title": "Metaxu Assurance Artifact",
   "description": "Machine-readable assurance record for one AI-mediated clinical interaction. See spec/ARTIFACT.md for the prose specification.",
   "type": "object",
@@ -98,6 +98,32 @@
       "description": "Producer-defined extension point. Namespaced keys (e.g. \"org.example/setting\") are recommended.",
       "additionalProperties": true
     },
+    "correlation": {
+      "type": "object",
+      "description": "Ties together multiple observers of the same interaction so partial artifacts can be merged.",
+      "required": ["interaction_id"],
+      "properties": {
+        "interaction_id": {
+          "type": "string",
+          "description": "Identifier shared by every observer of one interaction."
+        },
+        "observer": {
+          "type": "string",
+          "description": "Which vantage point produced this artifact (e.g. \"sdk\", \"mcp-proxy\", \"metaxu.merge\")."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["partial", "merged"],
+          "description": "Every single-observer artifact is a partial view; merged artifacts are assembled from partials."
+        },
+        "merged_from": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Artifact ids this merged artifact was assembled from."
+        }
+      },
+      "additionalProperties": true
+    },
     "events": {
       "type": "array",
       "description": "The complete ordered event stream the artifact was derived from.",
@@ -109,7 +135,7 @@
       "pattern": "^sha256:[0-9a-f]{64}$"
     }
   },
-  "additionalProperties": false,
+  "additionalProperties": true,
   "$defs": {
     "event": {
       "type": "object",
@@ -118,18 +144,7 @@
         "id": { "type": "string" },
         "type": {
           "type": "string",
-          "enum": [
-            "question",
-            "tool_invocation",
-            "retrieval",
-            "claim",
-            "evidence_link",
-            "policy_check",
-            "safety_check",
-            "missing_data",
-            "answer",
-            "note"
-          ]
+          "description": "Known values: question, tool_invocation, retrieval, claim, evidence_link, policy_check, safety_check, missing_data, answer, note. Unknown types MUST be preserved and ignored by consumers, not rejected — so this is deliberately not an enum."
         },
         "name": { "type": "string" },
         "timestamp": { "type": "string", "format": "date-time" },

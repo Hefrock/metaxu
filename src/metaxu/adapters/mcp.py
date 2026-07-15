@@ -67,6 +67,7 @@ class MCPProxy:
         policy_engine: PolicyEngine | None = None,
         tag_map: dict[str, list[str]] | None = None,
         snapshot_dir: str | None = None,
+        interaction_id: str | None = None,
     ):
         self.server_command = server_command
         self.server_label = "mcp:" + (server_command[0] if server_command else "unknown")
@@ -79,6 +80,8 @@ class MCPProxy:
             question=question or f"MCP session: {' '.join(server_command)}",
             policy_engine=policy_engine,
             safety_engine=safety,
+            interaction_id=interaction_id,
+            observer="mcp-proxy",
             metadata={
                 "dev.metaxu/observer": "mcp-proxy",
                 "dev.metaxu/server_command": server_command,
@@ -274,6 +277,7 @@ def run_proxy(
     policy_file: str | None = None,
     tags_file: str | None = None,
     snapshots: bool = True,
+    interaction_id: str | None = None,
 ) -> str:
     """Spawn the real server, proxy stdio, and write the artifact on exit.
 
@@ -295,6 +299,7 @@ def run_proxy(
         policy_engine=policy_engine,
         tag_map=tag_map,
         snapshot_dir=os.path.join(out_dir, "snapshots") if snapshots else None,
+        interaction_id=interaction_id,
     )
 
     child = subprocess.Popen(

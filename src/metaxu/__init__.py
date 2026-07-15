@@ -14,6 +14,7 @@ from .artifact import ARTIFACT_SCHEMA_VERSION, AssuranceArtifact
 from .events import Event, EventType
 from .adapters.mcp import MCPProxy
 from .instrument import assured_tool
+from .merge import merge_artifacts
 from .policy import Policy, PolicyEngine, PolicyResult
 from .provenance import ProvenanceRecord, content_hash
 from .replay import VerificationReport, save_snapshot, snapshot_resolver, verify
@@ -21,7 +22,7 @@ from .safety import SafetyContext, SafetyEngine, SafetyFinding
 from .session import AssuranceSession, current_session
 from .trust import TrustDimension, TrustEngine
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "ARTIFACT_SCHEMA_VERSION",
@@ -43,6 +44,7 @@ __all__ = [
     "assured_tool",
     "content_hash",
     "current_session",
+    "merge_artifacts",
     "save_snapshot",
     "snapshot_resolver",
     "verify",

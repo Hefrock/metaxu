@@ -1,6 +1,6 @@
 # Event Model
 
-**Version:** 0.1.0 (draft)
+**Version:** 0.2.0 (draft)
 
 Everything Metaxu asserts about an interaction derives from an ordered
 stream of **events**. The model is deliberately minimal so that any
@@ -58,6 +58,16 @@ Events appear in the artifact in emission order. `timestamp` is
 informational (clock skew across agents is expected); ordering guarantees
 come from list position within one artifact, and from `parent_id` links
 across producers.
+
+## Multiple observers
+
+Event ids are globally unique, so streams recorded by different observers
+of the same interaction (an MCP proxy, an SDK session, a gateway) can be
+unioned without collision. Observers correlate via the artifact's
+`correlation.interaction_id`; see the *Correlation and merging* section
+of [ARTIFACT.md](ARTIFACT.md). When merged, streams are deduplicated by
+event id and ordered by timestamp — which is why timestamps, though
+informational, SHOULD be honest UTC.
 
 ## Relationship to OpenTelemetry
 

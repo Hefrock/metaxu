@@ -5,6 +5,7 @@ Commands:
     metaxu validate <artifact.json>             Schema + structural validation
     metaxu verify <artifact.json> --snapshots d Re-verify provenance hashes
     metaxu mcp-proxy [opts] -- <server cmd>     Transparent MCP assurance proxy
+    metaxu merge -o out.json a.json b.json ...  Merge partial artifacts (one interaction)
 """
 
 from __future__ import annotations
@@ -159,7 +160,34 @@ def cmd_mcp_proxy(args: argparse.Namespace) -> int:
         policy_file=args.policies,
         tags_file=args.tags,
         snapshots=not args.no_snapshots,
+        interaction_id=args.interaction_id,
     )
+    return 0
+
+
+def cmd_merge(args: argparse.Namespace) -> int:
+    from .merge import merge_artifacts
+    from .policy import PolicyEngine
+
+    artifacts = [_load(path) for path in args.artifacts]
+    engine = PolicyEngine.from_file(args.policies) if args.policies else None
+    try:
+        merged = merge_artifacts(artifacts, policy_engine=engine)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    merged.save(args.out)
+    conflicts = merged.metadata.get("dev.metaxu/merge_conflicts", [])
+    print(
+        f"merged {len(artifacts)} artifacts -> {args.out} "
+        f"({len(merged.events)} events, {len(merged.provenance)} provenance records, "
+        f"{len(conflicts)} conflict(s))"
+    )
+    for conflict in conflicts:
+        print(
+            f"  conflict on {conflict['field']}: kept value from "
+            f"{conflict['kept_from']}, discarded value from {conflict['discarded_from']}"
+        )
     return 0
 
 
@@ -200,11 +228,27 @@ def main(argv: list[str] | None = None) -> int:
         "--no-snapshots", action="store_true", help="do not snapshot retrieved content"
     )
     p_proxy.add_argument(
+        "--interaction-id",
+        default=None,
+        help="correlation id shared with other observers (default: METAXU_INTERACTION_ID env var)",
+    )
+    p_proxy.add_argument(
         "server_command",
         nargs=argparse.REMAINDER,
         help="the real MCP server command (prefix with --)",
     )
     p_proxy.set_defaults(func=cmd_mcp_proxy)
+
+    p_merge = sub.add_parser(
+        "merge",
+        help="merge partial artifacts from multiple observers of one interaction",
+    )
+    p_merge.add_argument("artifacts", nargs="+", help="partial artifacts, most authoritative first")
+    p_merge.add_argument("-o", "--out", required=True, help="output path for the merged artifact")
+    p_merge.add_argument(
+        "--policies", default=None, help="policy pack (JSON/YAML) to re-evaluate on merge"
+    )
+    p_merge.set_defaults(func=cmd_merge)
 
     args = parser.parse_args(argv)
     return args.func(args)

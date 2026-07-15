@@ -18,8 +18,10 @@ Usage::
 from __future__ import annotations
 
 import contextvars
+import os
 import platform
 import sys
+import uuid
 from typing import Any
 
 from .artifact import AssuranceArtifact
@@ -49,8 +51,24 @@ class AssuranceSession:
         safety_engine: SafetyEngine | None = None,
         trust_engine: TrustEngine | None = None,
         metadata: dict[str, Any] | None = None,
+        interaction_id: str | None = None,
+        observer: str = "sdk",
     ):
+        """``interaction_id`` correlates this session with other observers
+        of the same interaction (an MCP proxy, an LLM gateway, …) so their
+        partial artifacts can later be combined by ``metaxu merge``. When
+        not passed explicitly it is taken from the ``METAXU_INTERACTION_ID``
+        environment variable — letting observers in different processes
+        share one id with no code changes — and generated otherwise.
+        """
         self.question = question
+        self.correlation: dict[str, Any] = {
+            "interaction_id": interaction_id
+            or os.environ.get("METAXU_INTERACTION_ID")
+            or f"ixn-{uuid.uuid4()}",
+            "observer": observer,
+            "role": "partial",
+        }
         self.answer: str | None = None
         self.events: list[Event] = []
         self.provenance: list[ProvenanceRecord] = []
@@ -230,6 +248,7 @@ class AssuranceSession:
             trust_scores=trust_scores,
             reproducibility=dict(self.reproducibility),
             metadata=dict(self.metadata),
+            correlation=dict(self.correlation),
             events=list(self.events),
         )
         return self.artifact
