@@ -33,6 +33,19 @@ def cmd_inspect(args: argparse.Namespace) -> int:
     print(f"  schema:     {artifact.schema_version}")
     print(f"  created:    {artifact.created_at}")
     print(f"  integrity:  {'ok' if AssuranceArtifact.verify_file(args.artifact) else 'FAILED'}")
+    correlation = artifact.correlation
+    if correlation:
+        role = correlation.get("role", "partial")
+        observer = correlation.get("observer", "unknown")
+        print(f"  view:       {role} (observer: {observer})")
+        print(f"  interaction: {correlation.get('interaction_id')}")
+        if role == "merged":
+            print(f"  merged from: {', '.join(correlation.get('merged_from', []))}")
+        else:
+            print(
+                "              (a single observer's view — merge with other "
+                "observers of this interaction via `metaxu merge`)"
+            )
     print()
     print(f"Question: {artifact.question}")
     print(f"Answer:   {artifact.answer or '(none recorded)'}")
@@ -70,6 +83,15 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         print("  (none)")
     for finding in artifact.safety_checks:
         print(f"  - [{finding['severity']}] {finding['check']}: {finding['message']}")
+
+    conflicts = artifact.metadata.get("dev.metaxu/merge_conflicts", [])
+    if conflicts:
+        print(f"\nMerge conflicts ({len(conflicts)}) — observers disagreed:")
+        for conflict in conflicts:
+            print(
+                f"  - {conflict['field']}: kept {conflict['kept_from']}'s value, "
+                f"discarded {conflict['discarded_from']}'s ({conflict['discarded']!r})"
+            )
 
     if artifact.missing_data:
         print(f"\nMissing data ({len(artifact.missing_data)}):")
@@ -196,6 +218,12 @@ def _fmt_args(arguments: dict) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    import signal
+
+    if hasattr(signal, "SIGPIPE"):
+        # Die quietly when piped into head/less instead of tracebacking.
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+
     parser = argparse.ArgumentParser(
         prog="metaxu", description="Inspect and verify Metaxu assurance artifacts."
     )
