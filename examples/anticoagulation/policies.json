@@ -1,0 +1,23 @@
+{
+  "policies": [
+    {
+      "name": "before_anticoagulation",
+      "description": "Checks that must occur before recommending anticoagulation therapy.",
+      "trigger": {
+        "answer_mentions": ["warfarin", "heparin", "apixaban", "rivaroxaban", "anticoagulation"]
+      },
+      "requires": [
+        "allergy_check",
+        "platelet_count",
+        "pregnancy_status",
+        "creatinine"
+      ]
+    },
+    {
+      "name": "answer_must_cite_patient_record",
+      "description": "Any clinical answer must be grounded in at least one retrieval from the patient record.",
+      "trigger": { "always": true },
+      "requires": ["patient_record_access"]
+    }
+  ]
+}

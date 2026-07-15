@@ -1,0 +1,194 @@
+# Metaxu
+
+**A Healthcare AI Assurance Layer.**
+
+Trust infrastructure that sits *between* AI systems and clinical users.
+Just as HTTPS became the trust layer for the web and OpenTelemetry the
+observability layer for distributed systems, healthcare AI lacks a
+standardized **assurance layer** providing provenance, transparency,
+auditability, and trust. Metaxu is an open framework for exactly that —
+**model-agnostic, agent-agnostic, EHR-agnostic**.
+
+Instead of an AI system returning:
+
+```
+Answer
+```
+
+an instrumented system returns:
+
+```
+Answer + Assurance Artifact
+```
+
+The **Assurance Artifact** is a machine-readable record that lets any
+consumer — a clinician, a dashboard, a CI pipeline, an auditor — answer:
+
+- Where did this answer come from?
+- What evidence supports it?
+- Which tools were called?
+- Which clinical policies were verified?
+- What information was missing?
+- Can this result be reproduced?
+- Should a clinician trust it?
+
+## Status
+
+`0.1.0` — early draft of the spec and a working reference SDK. APIs and
+the artifact schema will change. Feedback and design discussion are the
+point of publishing this early.
+
+## What's here
+
+| Path | What it is |
+|---|---|
+| [`spec/ARTIFACT.md`](spec/ARTIFACT.md) | The Assurance Artifact specification (fields, versioning, extensibility, PHI notes) |
+| [`spec/EVENT_MODEL.md`](spec/EVENT_MODEL.md) | The event model everything derives from |
+| [`src/metaxu/spec/assurance-artifact.schema.json`](src/metaxu/spec/assurance-artifact.schema.json) | JSON Schema (draft 2020-12) for the artifact |
+| [`src/metaxu/`](src/metaxu/) | Reference Python SDK — stdlib-only core, zero required dependencies |
+| [`examples/anticoagulation/`](examples/anticoagulation/) | End-to-end demo: two agents (diligent vs. careless) over synthetic FHIR data |
+| [`tests/`](tests/) | Test suite, including the demo as a benchmark scenario |
+
+## Quick start
+
+```bash
+pip install -e ".[dev]"
+pytest
+
+# Run the demo: same question, two agents, two very different artifacts
+python examples/anticoagulation/run_demo.py
+metaxu inspect examples/anticoagulation/out/careless-artifact.json
+```
+
+The careless agent recommends warfarin without checking allergies, renal
+function, or pregnancy status, and asserts "renal function is normal"
+without ever retrieving it. Its artifact says so:
+
+```
+Policy checks (2):
+  - before_anticoagulation: FAIL (missing: allergy_check, pregnancy_status, creatinine)
+  - answer_must_cite_patient_record: PASS
+
+Safety findings (1):
+  - [critical] unsupported_claims: Claim has no linked evidence: Renal function is normal.
+
+Trust dimensions:
+  - policy_compliance: 0.50  1 of 2 triggered policies passed.
+  - provenance_coverage: 0.50  1 of 2 claims are linked to retrieved evidence.
+  - safety: 0.00  1 critical and 0 warning safety findings.
+  ...
+```
+
+## Instrumenting an agent
+
+Adopting Metaxu should feel like adding logging — decorate the tools the
+agent already has, record claims and evidence, get an artifact:
+
+```python
+from metaxu import AssuranceSession, PolicyEngine, ProvenanceRecord, assured_tool
+
+@assured_tool(tags=["platelet_count"], version="fhir-tools/1.2.0")
+def get_platelet_count(patient_id: str) -> dict:
+    resource = fhir.read("Observation", ...)   # your existing code
+    return resource
+
+engine = PolicyEngine.from_file("policies.json")
+
+with AssuranceSession(question=question, policy_engine=engine) as session:
+    obs = get_platelet_count("pat-001")            # traced automatically
+    prov = session.record_retrieval(
+        ProvenanceRecord.for_resource(
+            source_system=fhir.base_url,
+            resource_type="Observation",
+            resource_id=obs["id"],
+            content=obs,
+        )
+    )
+    claim = session.record_claim("Platelet count is adequate.")
+    session.link_evidence(claim, [prov])
+    session.set_answer(answer)
+
+session.artifact.save("artifact.json")
+```
+
+Policies are declarative data, shareable across institutions:
+
+```json
+{
+  "policies": [{
+    "name": "before_anticoagulation",
+    "trigger": {"answer_mentions": ["warfarin", "heparin", "apixaban"]},
+    "requires": ["allergy_check", "platelet_count", "pregnancy_status", "creatinine"]
+  }]
+}
+```
+
+## Architecture
+
+```
+Healthcare AI  (chatbot / agent / MCP workflow / RAG pipeline / rule engine)
+      │
+      ▼
+AssuranceSession ──── events: tool calls, retrievals, claims, evidence links
+      │
+      ├── Provenance engine    every resource: source, version, time, hash
+      ├── Policy engine        declarative "these checks must have occurred"
+      ├── Safety engine        structural checks: unsupported claims,
+      │                        hallucinated resources, ignored allergies, …
+      └── Trust engine         multiple dimensions, never one score
+      │
+      ▼
+Assurance Artifact  ──►  clinician / dashboard / CI pipeline / auditor
+      │
+      ▼
+metaxu CLI: inspect · validate · verify (provenance re-hashing / drift)
+```
+
+Design commitments:
+
+- **The artifact is the interface.** Everything downstream consumes the
+  artifact, never the AI system.
+- **Instrumentation is never load-bearing.** Decorated tools behave
+  identically outside a session; adopting Metaxu cannot change clinical
+  behavior.
+- **No single trust score.** Trust is reported per-dimension with a
+  rationale and the inputs it was computed from — auditable, not oracular.
+- **Symbolic verification of neural output.** LLMs generate hypotheses;
+  policies, terminologies, and hashes verify them. The novelty is
+  assurance, not reasoning.
+- **Stdlib-only core.** `pip install metaxu` drags in nothing; YAML
+  policies and full JSON Schema validation are optional extras.
+
+## CLI
+
+```bash
+metaxu inspect  artifact.json                     # human-readable summary
+metaxu validate artifact.json                     # JSON Schema validation
+metaxu verify   artifact.json --snapshots dir/    # integrity + provenance re-hashing
+```
+
+`verify` recomputes content hashes of the resources the AI saw. A
+mismatch means the source data changed since the decision was made —
+exactly the drift a reviewing clinician needs to know about.
+
+## Roadmap
+
+- [ ] Detached-signature envelope for artifact authentication
+- [ ] OpenTelemetry exporter (events → spans) and importer
+- [ ] MCP proxy that instruments any MCP server transparently
+- [ ] Terminology validation checks (SNOMED / LOINC / RxNorm / UCUM)
+- [ ] Temporal-reasoning checks (newest labs, discontinued medications)
+- [ ] Benchmark scenario pack with reference artifacts
+- [ ] Governance dashboard over artifact collections
+- [ ] Policy pack sharing/extension model across institutions
+
+## A note on the data
+
+All patient data in this repository is synthetic. Real artifacts may
+contain PHI and must be handled under the same controls as the clinical
+record itself — see the PHI section of [`spec/ARTIFACT.md`](spec/ARTIFACT.md).
+
+## License
+
+Not yet chosen — intentionally deferred until the project's governance
+model is decided.

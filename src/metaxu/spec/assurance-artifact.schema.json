@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://metaxu.dev/spec/assurance-artifact/0.1.0/schema.json",
+  "title": "Metaxu Assurance Artifact",
+  "description": "Machine-readable assurance record for one AI-mediated clinical interaction. See spec/ARTIFACT.md for the prose specification.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "created_at",
+    "question",
+    "answer",
+    "provenance",
+    "tool_trace",
+    "evidence",
+    "policy_checks",
+    "safety_checks",
+    "trust_scores",
+    "events"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Semantic version of the artifact schema this document conforms to.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "id": {
+      "type": "string",
+      "description": "Globally unique artifact identifier."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "question": {
+      "type": "string",
+      "description": "The clinical question or task posed to the AI system."
+    },
+    "answer": {
+      "type": ["string", "null"],
+      "description": "The AI system's final answer; null when the session ended without one."
+    },
+    "evidence": {
+      "type": "array",
+      "description": "Evidence-link events: edges of the evidence graph connecting claims to provenance records.",
+      "items": { "$ref": "#/$defs/event" }
+    },
+    "tool_trace": {
+      "type": "array",
+      "description": "Tool-invocation events in call order.",
+      "items": { "$ref": "#/$defs/event" }
+    },
+    "provenance": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/provenanceRecord" }
+    },
+    "policy_checks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/policyResult" }
+    },
+    "safety_checks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/safetyFinding" }
+    },
+    "missing_data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["item"],
+        "properties": {
+          "item": { "type": "string" },
+          "reason": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "trust_scores": {
+      "type": "object",
+      "description": "Named trust dimensions. Deliberately not aggregated into a single score.",
+      "additionalProperties": { "$ref": "#/$defs/trustDimension" }
+    },
+    "reproducibility": {
+      "type": "object",
+      "description": "Everything needed to attempt a replay: model, prompt, tool, and runtime versions.",
+      "properties": {
+        "model": { "type": "string" },
+        "prompt_version": { "type": "string" },
+        "tool_versions": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "python_version": { "type": "string" },
+        "platform": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Producer-defined extension point. Namespaced keys (e.g. \"org.example/setting\") are recommended.",
+      "additionalProperties": true
+    },
+    "events": {
+      "type": "array",
+      "description": "The complete ordered event stream the artifact was derived from.",
+      "items": { "$ref": "#/$defs/event" }
+    },
+    "artifact_hash": {
+      "type": "string",
+      "description": "sha256 over the canonical JSON of every other field; enables tamper detection.",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "event": {
+      "type": "object",
+      "required": ["id", "type", "name", "timestamp"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": [
+            "question",
+            "tool_invocation",
+            "retrieval",
+            "claim",
+            "evidence_link",
+            "policy_check",
+            "safety_check",
+            "missing_data",
+            "answer",
+            "note"
+          ]
+        },
+        "name": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "payload": { "type": "object" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "parent_id": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "provenanceRecord": {
+      "type": "object",
+      "required": ["id", "source_system", "resource_type", "resource_id", "retrieved_at"],
+      "properties": {
+        "id": { "type": "string" },
+        "source_system": { "type": "string" },
+        "resource_type": { "type": "string" },
+        "resource_id": { "type": "string" },
+        "resource_version": { "type": ["string", "null"] },
+        "retrieved_at": { "type": "string", "format": "date-time" },
+        "hash": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+        "cache_state": { "type": "string", "enum": ["fresh", "cached", "unknown"] }
+      },
+      "additionalProperties": false
+    },
+    "policyResult": {
+      "type": "object",
+      "required": ["policy", "triggered", "passed"],
+      "properties": {
+        "policy": { "type": "string" },
+        "description": { "type": ["string", "null"] },
+        "triggered": { "type": "boolean" },
+        "passed": { "type": "boolean" },
+        "satisfied": { "type": "array", "items": { "type": "string" } },
+        "missing": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "safetyFinding": {
+      "type": "object",
+      "required": ["check", "severity", "message"],
+      "properties": {
+        "check": { "type": "string" },
+        "severity": { "type": "string", "enum": ["info", "warning", "critical"] },
+        "message": { "type": "string" },
+        "subject": { "type": ["string", "null"] },
+        "details": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "trustDimension": {
+      "type": "object",
+      "required": ["score", "rationale"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "rationale": { "type": "string" },
+        "inputs": { "type": "object" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

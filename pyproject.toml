@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metaxu"
+version = "0.1.0"
+description = "Healthcare AI Assurance Layer: provenance, policy, safety, and trust artifacts for AI-mediated clinical decisions."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "TBD" }
+authors = [{ name = "Metaxu Contributors" }]
+keywords = [
+    "healthcare",
+    "ai",
+    "assurance",
+    "provenance",
+    "fhir",
+    "audit",
+    "trust",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Healthcare Industry",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+# The core SDK is intentionally dependency-free (stdlib only).
+dependencies = []
+
+[project.optional-dependencies]
+yaml = ["pyyaml>=6.0"]
+schema = ["jsonschema>=4.0"]
+dev = ["pytest>=8.0", "pyyaml>=6.0", "jsonschema>=4.0"]
+
+[project.scripts]
+metaxu = "metaxu.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"metaxu.spec" = ["*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
