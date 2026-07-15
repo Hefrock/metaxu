@@ -43,13 +43,20 @@ from .events import Event
 
 @dataclass
 class PolicyResult:
-    """Outcome of evaluating one policy against a session."""
+    """Outcome of evaluating one policy against a session.
+
+    ``errored`` distinguishes "the check was attempted but failed" from
+    "the check never happened" (``missing``): a requirement lands there
+    when every event matching it carries an error. Neither satisfies the
+    policy — a failed allergy check is not an allergy check.
+    """
 
     policy: str
     triggered: bool
     passed: bool
     satisfied: list[str] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)
+    errored: list[str] = field(default_factory=list)
     description: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -60,6 +67,7 @@ class PolicyResult:
             "passed": self.passed,
             "satisfied": self.satisfied,
             "missing": self.missing,
+            "errored": self.errored,
         }
 
 
@@ -104,18 +112,24 @@ class Policy:
                 passed=True,
             )
         observed: set[str] = set()
+        observed_errored: set[str] = set()
         for event in events:
-            observed.add(event.name)
-            observed.update(event.tags)
+            # An event that recorded an error is an attempt, not a check:
+            # it must never satisfy a requirement.
+            target = observed_errored if event.payload.get("error") else observed
+            target.add(event.name)
+            target.update(event.tags)
         satisfied = [r for r in self.requires if r in observed]
-        missing = [r for r in self.requires if r not in observed]
+        errored = [r for r in self.requires if r not in observed and r in observed_errored]
+        missing = [r for r in self.requires if r not in observed and r not in observed_errored]
         return PolicyResult(
             policy=self.name,
             description=self.description,
             triggered=True,
-            passed=not missing,
+            passed=not missing and not errored,
             satisfied=satisfied,
             missing=missing,
+            errored=errored,
         )
 
     @classmethod
