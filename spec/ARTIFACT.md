@@ -1,6 +1,6 @@
 # Assurance Artifact Specification
 
-**Version:** 0.1.0 (draft)
+**Version:** 0.2.0 (draft)
 **Schema:** [`src/metaxu/spec/assurance-artifact.schema.json`](../src/metaxu/spec/assurance-artifact.schema.json)
 
 ## Purpose
@@ -39,6 +39,7 @@ need to know how the underlying AI system works.
 | `trust_scores` | yes | Named trust dimensions, each `{score, rationale, inputs}`. **Never aggregated into a single number.** |
 | `reproducibility` | no | Model, prompt, tool, and runtime versions needed to attempt replay. |
 | `metadata` | no | Producer-defined extension point (see Extensibility). |
+| `correlation` | no | Ties observers of one interaction together: `interaction_id`, `observer`, `role`, `merged_from` (see Correlation and merging). |
 | `events` | yes | The complete ordered event stream the artifact was derived from (see [EVENT_MODEL.md](EVENT_MODEL.md)). |
 | `artifact_hash` | no | `sha256:` over the canonical JSON of every other field; enables tamper detection without key material. |
 
@@ -78,6 +79,40 @@ Producers may add domain dimensions (e.g. `terminology_correctness`).
 Consumers MUST tolerate unknown dimensions and MUST NOT synthesize a
 single aggregate score when presenting to clinicians.
 
+## Correlation and merging
+
+No single interception point sees a whole interaction. An MCP proxy sees
+tool calls but not claims or the answer; an SDK-instrumented agent sees
+claims; an LLM gateway sees the answer. The artifact is therefore
+designed to be assembled from **multiple observers**, not just produced
+by one:
+
+- Every observer of one interaction stamps its artifact with the same
+  `correlation.interaction_id` (producers typically propagate it via the
+  `METAXU_INTERACTION_ID` environment variable across process
+  boundaries).
+- `correlation.observer` names the vantage point (`sdk`, `mcp-proxy`,
+  `metaxu.merge`, …). `correlation.role` is `partial` for every
+  single-observer artifact — a single vantage point is by definition a
+  partial view — and `merged` for artifacts assembled from partials,
+  which also list their inputs in `correlation.merged_from`.
+
+**Merge semantics.** A merge is a *re-evaluation, not a concatenation*:
+
+1. Event streams are unioned (deduplicated by event id, ordered by
+   timestamp); provenance and `missing_data` are unioned by identity.
+2. Policy, safety, and trust engines run again over the combined
+   observational events (each partial's own `policy_check`/`safety_check`
+   events are kept as history but excluded as engine inputs). A policy
+   that failed on every partial view may rightly pass on the merged view
+   — that is the point of composing observers.
+3. Scalar conflicts (two observers recording different answers) are
+   never silently resolved: the first non-null value in merge order wins
+   and every losing value is preserved under
+   `metadata["dev.metaxu/merge_conflicts"]` with its source observer.
+4. Merging requires identical `interaction_id`s and the same major
+   schema version; anything else is an error, not a best effort.
+
 ## Versioning
 
 - The spec follows **semver**. Within a major version, fields are only
@@ -94,6 +129,10 @@ single aggregate score when presenting to clinicians.
 - New event types, safety checks, policy trigger kinds, and trust
   dimensions may be introduced by producers; consumers MUST ignore ones
   they do not recognize rather than failing.
+- The JSON Schema deliberately allows unknown top-level fields and
+  unknown event types (they are documented, not enumerated), so schema
+  validation is consistent with the tolerance rules above: a 0.x
+  validator accepts artifacts from any later 0.x producer.
 
 ## Integrity
 

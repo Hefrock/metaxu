@@ -1,23 +1,12 @@
 # Metaxu
 
-**μεταξύ** (*metaxu*) — Greek for "between," "among," "in the midst of."
-Pronounced **meh-TAX-oo**.
+**μεταξύ** (*metaxu*, pronounced **meh-TAX-oo**) — Greek for "between."
 
 Metaxu is an AI assurance and provenance layer for healthcare —
-model-agnostic, agent-agnostic, EHR-agnostic. The name states the
-project's position literally: this is not another healthcare AI agent,
-and not a product bolted onto one. It is the trust infrastructure that
-sits *between* AI systems and clinical users — the way HTTPS sits between
-browsers and servers, and OpenTelemetry sits between services and
-observability tooling.
-
-The word has a philosophical lineage for exactly this idea. In Plato's
-*Symposium*, Diotima describes Eros as *metaxu*: a being that exists and
-operates precisely in the between. Simone Weil used it for the relation
-that simultaneously separates and joins two realities — not a wall, not a
-bridge, but the connective tissue itself. That is a more precise
-description of an assurance layer — the *relation* between AI and
-clinician — than any "trust" or "assurance" word offers.
+model-agnostic, agent-agnostic, EHR-agnostic. It's not another healthcare
+AI agent; it's the trust infrastructure that sits *between* AI systems
+and clinical users, the way HTTPS sits between browsers and servers, or
+OpenTelemetry sits between services and observability tooling.
 
 Healthcare AI today lacks a standardized assurance layer providing
 provenance, transparency, auditability, and trust. Metaxu is an open
@@ -125,6 +114,59 @@ with AssuranceSession(question=question, policy_engine=engine) as session:
 session.artifact.save("artifact.json")
 ```
 
+## Zero-code instrumentation: the MCP proxy
+
+For MCP-based workflows you don't need to touch agent code at all. Wrap
+any MCP stdio server with the assurance proxy — a config change, not a
+code change:
+
+```jsonc
+// in your MCP client configuration, instead of running the server directly:
+{
+  "command": "metaxu",
+  "args": ["mcp-proxy", "--out", "artifacts/",
+           "--tags", "tags.json", "--policies", "policies.json",
+           "--", "my-fhir-mcp-server", "--their", "args"]
+}
+```
+
+The proxy forwards JSON-RPC byte-for-byte (recording can never drop or
+mutate a message) while capturing every `tools/call` — name, arguments,
+result summary, errors, timing — plus content hashes and snapshots of
+everything retrieved, and the client/server/protocol versions for
+reproducibility. A `tags.json` file (`{"get_allergies": ["allergy_check"]}`)
+maps tool names to policy tags so institutional policies evaluate against
+any server's tool vocabulary. An artifact is written when the session ends.
+
+A transparent proxy can't see claims, evidence links, or the final answer
+— those never cross the MCP wire. The proxy is the zero-effort floor;
+SDK instrumentation is the ceiling.
+
+## Composing observers: correlation and merge
+
+No single interception point sees a whole interaction, so artifacts are
+designed to be **assembled from multiple observers**. Every observer of
+one interaction shares an `interaction_id` (set `METAXU_INTERACTION_ID`
+in the environment, or pass `interaction_id=`/`--interaction-id`), each
+produces a *partial* artifact, and:
+
+```bash
+metaxu merge sdk-artifact.json proxy-artifact.json -o merged.json --policies policies.json
+```
+
+produces one *merged* artifact. A merge is a **re-evaluation, not a
+concatenation**: events and provenance are unioned, then the policy,
+safety, and trust engines run again over the combined observations — so a
+policy that failed on every partial view (the proxy never saw the
+platelet check; the SDK session never saw the allergy tool) can rightly
+pass on the merged view. Conflicting observations are never silently
+resolved; they're preserved in `metadata["dev.metaxu/merge_conflicts"]`.
+
+MCP is one adapter, not the interface: the core is transport-neutral, and
+adapters (`metaxu.adapters`) attach it to specific boundaries — MCP
+today; OpenTelemetry, CDS Hooks, and LLM gateways are the planned next
+vantage points.
+
 Policies are declarative data, shareable across institutions:
 
 ```json
@@ -132,10 +174,29 @@ Policies are declarative data, shareable across institutions:
   "policies": [{
     "name": "before_anticoagulation",
     "trigger": {"answer_mentions": ["warfarin", "heparin", "apixaban"]},
-    "requires": ["allergy_check", "platelet_count", "pregnancy_status", "creatinine"]
+    "requires": [
+      "allergy_check",
+      "pregnancy_status",
+      "creatinine",
+      {
+        "check": "platelet_count",
+        "where": {"path": "result_summary.valueQuantity.value", "gte": 50},
+        "within_hours": 48
+      }
+    ]
   }]
 }
 ```
+
+A requirement is a plain string ("this check occurred") or an object with
+conditions: `where` evaluates a dotted path into the matching event's
+payload (`eq`/`ne`/`gt`/`gte`/`lt`/`lte`/`in`), and `within_hours`
+requires the check to be no older than N hours *at the time the answer
+was given* — "used the newest labs", not just "used some labs". Results
+distinguish four outcomes per requirement: `satisfied`, `missing` (never
+attempted), `errored` (attempted, every attempt failed), and `unmet`
+(performed, but the value or timing failed the condition) — a platelet
+check that came back too low is not a passed platelet check.
 
 ## Architecture
 
@@ -179,6 +240,8 @@ Design commitments:
 metaxu inspect  artifact.json                     # human-readable summary
 metaxu validate artifact.json                     # JSON Schema validation
 metaxu verify   artifact.json --snapshots dir/    # integrity + provenance re-hashing
+metaxu mcp-proxy --out dir/ -- <server cmd>       # wrap an MCP server transparently
+metaxu merge a.json b.json -o merged.json         # combine observers of one interaction
 ```
 
 `verify` recomputes content hashes of the resources the AI saw. A
@@ -187,9 +250,12 @@ exactly the drift a reviewing clinician needs to know about.
 
 ## Roadmap
 
+- [x] MCP proxy that instruments any MCP server transparently
+- [x] Multi-observer correlation and artifact merging
+- [ ] OpenTelemetry adapter (events ↔ spans; map to GenAI semantic conventions)
+- [ ] CDS Hooks / SMART on FHIR adapter (the healthcare-native decision surface)
+- [ ] LLM API gateway adapter (closes the answer/claims blind spot without SDK adoption)
 - [ ] Detached-signature envelope for artifact authentication
-- [ ] OpenTelemetry exporter (events → spans) and importer
-- [ ] MCP proxy that instruments any MCP server transparently
 - [ ] Terminology validation checks (SNOMED / LOINC / RxNorm / UCUM)
 - [ ] Temporal-reasoning checks (newest labs, discontinued medications)
 - [ ] Benchmark scenario pack with reference artifacts
@@ -204,5 +270,9 @@ record itself — see the PHI section of [`spec/ARTIFACT.md`](spec/ARTIFACT.md).
 
 ## License
 
-Not yet chosen — intentionally deferred until the project's governance
-model is decided.
+[Apache License 2.0](LICENSE). Chosen to match how comparable open
+standards are licensed (OpenTelemetry, CycloneDX, the OpenAPI
+Specification): permissive enough for commercial EHR/AI vendors to
+embed the SDK and adapters, with an explicit patent grant and
+retaliation clause, and — per the [NOTICE](NOTICE) file — no grant of
+rights to the "Metaxu" name itself.

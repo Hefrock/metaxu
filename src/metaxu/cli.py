@@ -4,6 +4,8 @@ Commands:
     metaxu inspect <artifact.json>              Human-readable summary
     metaxu validate <artifact.json>             Schema + structural validation
     metaxu verify <artifact.json> --snapshots d Re-verify provenance hashes
+    metaxu mcp-proxy [opts] -- <server cmd>     Transparent MCP assurance proxy
+    metaxu merge -o out.json a.json b.json ...  Merge partial artifacts (one interaction)
 """
 
 from __future__ import annotations
@@ -31,6 +33,19 @@ def cmd_inspect(args: argparse.Namespace) -> int:
     print(f"  schema:     {artifact.schema_version}")
     print(f"  created:    {artifact.created_at}")
     print(f"  integrity:  {'ok' if AssuranceArtifact.verify_file(args.artifact) else 'FAILED'}")
+    correlation = artifact.correlation
+    if correlation:
+        role = correlation.get("role", "partial")
+        observer = correlation.get("observer", "unknown")
+        print(f"  view:       {role} (observer: {observer})")
+        print(f"  interaction: {correlation.get('interaction_id')}")
+        if role == "merged":
+            print(f"  merged from: {', '.join(correlation.get('merged_from', []))}")
+        else:
+            print(
+                "              (a single observer's view — merge with other "
+                "observers of this interaction via `metaxu merge`)"
+            )
     print()
     print(f"Question: {artifact.question}")
     print(f"Answer:   {artifact.answer or '(none recorded)'}")
@@ -59,6 +74,10 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         line = f"  - {check['policy']}: {status}"
         if check.get("missing"):
             line += f" (missing: {', '.join(check['missing'])})"
+        if check.get("errored"):
+            line += f" (attempted but errored: {', '.join(check['errored'])})"
+        if check.get("unmet"):
+            line += f" (condition not met: {', '.join(check['unmet'])})"
         print(line)
 
     print(f"\nSafety findings ({len(artifact.safety_checks)}):")
@@ -66,6 +85,15 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         print("  (none)")
     for finding in artifact.safety_checks:
         print(f"  - [{finding['severity']}] {finding['check']}: {finding['message']}")
+
+    conflicts = artifact.metadata.get("dev.metaxu/merge_conflicts", [])
+    if conflicts:
+        print(f"\nMerge conflicts ({len(conflicts)}) — observers disagreed:")
+        for conflict in conflicts:
+            print(
+                f"  - {conflict['field']}: kept {conflict['kept_from']}'s value, "
+                f"discarded {conflict['discarded_from']}'s ({conflict['discarded']!r})"
+            )
 
     if artifact.missing_data:
         print(f"\nMissing data ({len(artifact.missing_data)}):")
@@ -140,11 +168,64 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
+def cmd_mcp_proxy(args: argparse.Namespace) -> int:
+    from .adapters.mcp import run_proxy
+
+    command = args.server_command
+    if command and command[0] == "--":
+        command = command[1:]
+    if not command:
+        print("error: no server command given (metaxu mcp-proxy -- <cmd> ...)", file=sys.stderr)
+        return 2
+    run_proxy(
+        server_command=command,
+        out_dir=args.out,
+        question=args.question,
+        policy_file=args.policies,
+        tags_file=args.tags,
+        snapshots=not args.no_snapshots,
+        interaction_id=args.interaction_id,
+    )
+    return 0
+
+
+def cmd_merge(args: argparse.Namespace) -> int:
+    from .merge import merge_artifacts
+    from .policy import PolicyEngine
+
+    artifacts = [_load(path) for path in args.artifacts]
+    engine = PolicyEngine.from_file(args.policies) if args.policies else None
+    try:
+        merged = merge_artifacts(artifacts, policy_engine=engine)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    merged.save(args.out)
+    conflicts = merged.metadata.get("dev.metaxu/merge_conflicts", [])
+    print(
+        f"merged {len(artifacts)} artifacts -> {args.out} "
+        f"({len(merged.events)} events, {len(merged.provenance)} provenance records, "
+        f"{len(conflicts)} conflict(s))"
+    )
+    for conflict in conflicts:
+        print(
+            f"  conflict on {conflict['field']}: kept value from "
+            f"{conflict['kept_from']}, discarded value from {conflict['discarded_from']}"
+        )
+    return 0
+
+
 def _fmt_args(arguments: dict) -> str:
     return ", ".join(f"{k}={v!r}" for k, v in arguments.items())
 
 
 def main(argv: list[str] | None = None) -> int:
+    import signal
+
+    if hasattr(signal, "SIGPIPE"):
+        # Die quietly when piped into head/less instead of tracebacking.
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+
     parser = argparse.ArgumentParser(
         prog="metaxu", description="Inspect and verify Metaxu assurance artifacts."
     )
@@ -162,6 +243,42 @@ def main(argv: list[str] | None = None) -> int:
     p_verify.add_argument("artifact")
     p_verify.add_argument("--snapshots", help="directory of resource snapshots", default=None)
     p_verify.set_defaults(func=cmd_verify)
+
+    p_proxy = sub.add_parser(
+        "mcp-proxy",
+        help="wrap an MCP stdio server, recording an assurance artifact",
+    )
+    p_proxy.add_argument("--out", default="metaxu-artifacts", help="artifact output directory")
+    p_proxy.add_argument("--question", default=None, help="question/task to record on the artifact")
+    p_proxy.add_argument("--policies", default=None, help="policy pack (JSON/YAML) to evaluate")
+    p_proxy.add_argument(
+        "--tags", default=None, help="JSON file mapping tool names to policy tags"
+    )
+    p_proxy.add_argument(
+        "--no-snapshots", action="store_true", help="do not snapshot retrieved content"
+    )
+    p_proxy.add_argument(
+        "--interaction-id",
+        default=None,
+        help="correlation id shared with other observers (default: METAXU_INTERACTION_ID env var)",
+    )
+    p_proxy.add_argument(
+        "server_command",
+        nargs=argparse.REMAINDER,
+        help="the real MCP server command (prefix with --)",
+    )
+    p_proxy.set_defaults(func=cmd_mcp_proxy)
+
+    p_merge = sub.add_parser(
+        "merge",
+        help="merge partial artifacts from multiple observers of one interaction",
+    )
+    p_merge.add_argument("artifacts", nargs="+", help="partial artifacts, most authoritative first")
+    p_merge.add_argument("-o", "--out", required=True, help="output path for the merged artifact")
+    p_merge.add_argument(
+        "--policies", default=None, help="policy pack (JSON/YAML) to re-evaluate on merge"
+    )
+    p_merge.set_defaults(func=cmd_merge)
 
     args = parser.parse_args(argv)
     return args.func(args)

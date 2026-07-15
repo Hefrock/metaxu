@@ -71,6 +71,49 @@ def test_session_runs_policies_at_finalize():
     assert session.artifact.trust_scores["policy_compliance"]["score"] == 0.0
 
 
+def test_errored_check_does_not_satisfy_policy():
+    """A tool call that failed must not count as a completed check."""
+    from metaxu import AssuranceSession, assured_tool
+
+    @assured_tool(tags=["allergy_check"])
+    def check_allergies(patient_id: str):
+        raise ConnectionError("EHR unreachable")
+
+    engine = PolicyEngine.from_document(ANTICOAG_POLICY)
+    with AssuranceSession(question="Q?", policy_engine=engine) as session:
+        try:
+            check_allergies("pat-001")
+        except ConnectionError:
+            pass
+        session.record_note("platelets reviewed", tags=["platelet_count"])
+        session.set_answer("Start warfarin.")
+
+    [check] = session.artifact.policy_checks
+    assert check["triggered"]
+    assert not check["passed"]
+    assert check["errored"] == ["allergy_check"]
+    assert check["missing"] == []
+    assert check["satisfied"] == ["platelet_count"]
+
+
+def test_errored_then_successful_check_satisfies_policy():
+    """A retry that succeeds satisfies the requirement despite the earlier failure."""
+    events = [
+        Event(
+            type=EventType.TOOL_INVOCATION,
+            name="check_allergies",
+            tags=["allergy_check"],
+            payload={"error": "ConnectionError: EHR unreachable"},
+        ),
+        tool_event("check_allergies", tags=["allergy_check"]),
+        tool_event("platelet_count"),
+    ]
+    engine = PolicyEngine.from_document(ANTICOAG_POLICY)
+    [result] = engine.evaluate("Start warfarin.", events)
+    assert result.passed
+    assert result.errored == []
+
+
 def test_policy_engine_from_json_file(tmp_path):
     import json
 

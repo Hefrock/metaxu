@@ -18,8 +18,11 @@ Usage::
 from __future__ import annotations
 
 import contextvars
+import json
+import os
 import platform
 import sys
+import uuid
 from typing import Any
 
 from .artifact import AssuranceArtifact
@@ -49,8 +52,24 @@ class AssuranceSession:
         safety_engine: SafetyEngine | None = None,
         trust_engine: TrustEngine | None = None,
         metadata: dict[str, Any] | None = None,
+        interaction_id: str | None = None,
+        observer: str = "sdk",
     ):
+        """``interaction_id`` correlates this session with other observers
+        of the same interaction (an MCP proxy, an LLM gateway, …) so their
+        partial artifacts can later be combined by ``metaxu merge``. When
+        not passed explicitly it is taken from the ``METAXU_INTERACTION_ID``
+        environment variable — letting observers in different processes
+        share one id with no code changes — and generated otherwise.
+        """
         self.question = question
+        self.correlation: dict[str, Any] = {
+            "interaction_id": interaction_id
+            or os.environ.get("METAXU_INTERACTION_ID")
+            or f"ixn-{uuid.uuid4()}",
+            "observer": observer,
+            "role": "partial",
+        }
         self.answer: str | None = None
         self.events: list[Event] = []
         self.provenance: list[ProvenanceRecord] = []
@@ -164,9 +183,19 @@ class AssuranceSession:
         self.missing_data.append(entry)
         self._record(Event(type=EventType.MISSING_DATA, name=item, payload=entry))
 
-    def record_note(self, text: str, tags: list[str] | None = None) -> Event:
+    def record_note(
+        self,
+        text: str,
+        tags: list[str] | None = None,
+        data: dict[str, Any] | None = None,
+    ) -> Event:
+        """Free-form annotation. ``data`` holds structured values that
+        policy ``where`` clauses can address (path prefix ``data.``)."""
+        payload: dict[str, Any] = {"text": text}
+        if data is not None:
+            payload["data"] = data
         return self._record(
-            Event(type=EventType.NOTE, name="note", tags=tags or [], payload={"text": text})
+            Event(type=EventType.NOTE, name="note", tags=tags or [], payload=payload)
         )
 
     def set_model(self, model: str, prompt_version: str | None = None) -> None:
@@ -230,16 +259,28 @@ class AssuranceSession:
             trust_scores=trust_scores,
             reproducibility=dict(self.reproducibility),
             metadata=dict(self.metadata),
+            correlation=dict(self.correlation),
             events=list(self.events),
         )
         return self.artifact
 
 
 def _summarize(result: Any, limit: int = 500) -> Any:
-    """Keep tool results in the trace small; provenance holds full hashes."""
+    """Keep tool results in the trace small; provenance holds full hashes.
+
+    Small JSON-native results are kept structured so policy ``where``
+    clauses can address their values by path
+    (e.g. ``result_summary.valueQuantity.value``).
+    """
     if result is None:
         return None
     if isinstance(result, (int, float, bool)):
         return result
+    if isinstance(result, (dict, list)):
+        try:
+            if len(json.dumps(result, default=str)) <= limit:
+                return result
+        except (TypeError, ValueError):
+            pass
     text = str(result)
     return text if len(text) <= limit else text[:limit] + "…"

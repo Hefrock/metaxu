@@ -55,7 +55,10 @@ class Event:
             workflows.
     """
 
-    type: EventType
+    # Normally an EventType; a plain string for event types this version
+    # doesn't know, which the spec requires preserving (EventType is a str
+    # enum, so comparisons against known members still work either way).
+    type: EventType | str
     name: str
     payload: dict[str, Any] = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
@@ -66,7 +69,7 @@ class Event:
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
-            "type": self.type.value,
+            "type": self.type.value if isinstance(self.type, EventType) else self.type,
             "name": self.name,
             "timestamp": self.timestamp,
             "payload": self.payload,
@@ -76,8 +79,12 @@ class Event:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Event":
+        try:
+            event_type: EventType | str = EventType(data["type"])
+        except ValueError:
+            event_type = data["type"]  # unknown type: preserve, don't reject
         return cls(
-            type=EventType(data["type"]),
+            type=event_type,
             name=data["name"],
             payload=data.get("payload", {}),
             tags=data.get("tags", []),
