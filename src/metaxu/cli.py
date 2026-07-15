@@ -6,6 +6,7 @@ Commands:
     metaxu verify <artifact.json> --snapshots d Re-verify provenance hashes
     metaxu mcp-proxy [opts] -- <server cmd>     Transparent MCP assurance proxy
     metaxu merge -o out.json a.json b.json ...  Merge partial artifacts (one interaction)
+    metaxu report <dir> [--json | --html out]   Governance report over an artifact store
 """
 
 from __future__ import annotations
@@ -215,6 +216,26 @@ def cmd_merge(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_report(args: argparse.Namespace) -> int:
+    from .governance import aggregate_artifacts, load_artifacts, render_text
+
+    artifacts = load_artifacts(args.directory)
+    report = aggregate_artifacts(artifacts)
+    if args.json:
+        print(json.dumps(report, indent=2))
+    elif args.html:
+        from .dashboard import render_html
+
+        with open(args.html, "w", encoding="utf-8") as f:
+            f.write(render_html(report, title=args.title))
+        print(f"wrote {args.html} ({report['artifact_count']} artifact(s))")
+    else:
+        print(render_text(report))
+    if args.fail_on_review and report["needs_review"]:
+        return 1
+    return 0
+
+
 def _fmt_args(arguments: dict) -> str:
     return ", ".join(f"{k}={v!r}" for k, v in arguments.items())
 
@@ -279,6 +300,24 @@ def main(argv: list[str] | None = None) -> int:
         "--policies", default=None, help="policy pack (JSON/YAML) to re-evaluate on merge"
     )
     p_merge.set_defaults(func=cmd_merge)
+
+    p_report = sub.add_parser(
+        "report",
+        help="aggregate governance metrics over a directory of artifacts",
+    )
+    p_report.add_argument("directory", help="artifact store to aggregate (searched recursively)")
+    output = p_report.add_mutually_exclusive_group()
+    output.add_argument("--json", action="store_true", help="emit the report as JSON")
+    output.add_argument("--html", default=None, help="write a self-contained HTML dashboard here")
+    p_report.add_argument(
+        "--title", default="Metaxu governance report", help="title for the HTML dashboard"
+    )
+    p_report.add_argument(
+        "--fail-on-review",
+        action="store_true",
+        help="exit 1 if any artifact needs review (for CI gates)",
+    )
+    p_report.set_defaults(func=cmd_report)
 
     args = parser.parse_args(argv)
     return args.func(args)

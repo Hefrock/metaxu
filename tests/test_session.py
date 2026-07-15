@@ -128,6 +128,26 @@ def test_tampered_artifact_fails_integrity(tmp_path):
     assert not AssuranceArtifact.verify_file(path)
 
 
+def test_loaded_artifact_mutated_in_memory_fails_integrity(tmp_path):
+    """Regression: verify_integrity() used to recompute the hash from
+    current content and compare it with itself — a tautology that let
+    post-load tampering pass. It must compare against the hash captured
+    at load/save time."""
+    with AssuranceSession(question="Q?") as session:
+        session.set_answer("A")
+    path = str(tmp_path / "artifact.json")
+    session.artifact.save(path)
+
+    loaded = AssuranceArtifact.load(path)
+    assert loaded.verify_integrity()
+    loaded.answer = "Tampered in memory"
+    assert not loaded.verify_integrity()
+
+    # Post-save mutation of the original object is detectable too.
+    session.artifact.answer = "Tampered after save"
+    assert not session.artifact.verify_integrity()
+
+
 def test_missing_data_recorded():
     with AssuranceSession(question="Q?") as session:
         session.record_missing_data("pregnancy_status", reason="not in chart")

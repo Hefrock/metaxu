@@ -242,11 +242,34 @@ metaxu validate artifact.json                     # JSON Schema validation
 metaxu verify   artifact.json --snapshots dir/    # integrity + provenance re-hashing
 metaxu mcp-proxy --out dir/ -- <server cmd>       # wrap an MCP server transparently
 metaxu merge a.json b.json -o merged.json         # combine observers of one interaction
+metaxu report artifacts/ [--json | --html dash.html]  # governance metrics over a store
 ```
 
 `verify` recomputes content hashes of the resources the AI saw. A
 mismatch means the source data changed since the decision was made —
 exactly the drift a reviewing clinician needs to know about.
+
+## Governance: from artifacts to oversight
+
+Individual artifacts answer "should a clinician trust *this* answer?".
+`metaxu report` answers the institutional questions over a whole
+artifact store: per-dimension trust (never collapsed into one number),
+policy pass rates with the most-unsatisfied requirements, hallucination
+and unsupported-claim rates, tool reliability, most-missed data, and a
+triage list of artifacts needing human review (critical findings, failed
+policies, integrity failures).
+
+```bash
+metaxu report artifacts/                    # terminal summary
+metaxu report artifacts/ --json             # machine-readable, for pipelines
+metaxu report artifacts/ --html dash.html   # self-contained HTML dashboard
+metaxu report artifacts/ --fail-on-review   # CI gate: exit 1 if anything needs review
+```
+
+The input is just a directory of artifacts — any producer's artifacts
+aggregate identically, because the artifact is the interoperability
+boundary. Reports may quote clinical questions, so handle the output
+under the same PHI controls as the artifacts themselves.
 
 ## Roadmap
 
@@ -258,8 +281,8 @@ exactly the drift a reviewing clinician needs to know about.
 - [ ] Detached-signature envelope for artifact authentication
 - [ ] Terminology validation checks (SNOMED / LOINC / RxNorm / UCUM)
 - [ ] Temporal-reasoning checks (newest labs, discontinued medications)
+- [x] Governance reporting and dashboard over artifact collections
 - [ ] Benchmark scenario pack with reference artifacts
-- [ ] Governance dashboard over artifact collections
 - [ ] Policy pack sharing/extension model across institutions
 
 ## A note on the data
