@@ -7,6 +7,7 @@ Commands:
     metaxu mcp-proxy [opts] -- <server cmd>     Transparent MCP assurance proxy
     metaxu merge -o out.json a.json b.json ...  Merge partial artifacts (one interaction)
     metaxu report <dir> [--json | --html out]   Governance report over an artifact store
+    metaxu drift <baseline> <current> [--json]  Detect drift between artifact cohorts
 """
 
 from __future__ import annotations
@@ -236,6 +237,22 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_drift(args: argparse.Namespace) -> int:
+    from . import drift as drift_mod
+    from .governance import load_artifacts
+
+    baseline = load_artifacts(args.baseline)
+    current = load_artifacts(args.current)
+    report = drift_mod.compare_cohorts(baseline, current, threshold=args.threshold)
+    if args.json:
+        print(json.dumps(report, indent=2))
+    else:
+        print(drift_mod.render_text(report))
+    if args.fail_on_drift and report["flags"]:
+        return 1
+    return 0
+
+
 def _fmt_args(arguments: dict) -> str:
     return ", ".join(f"{k}={v!r}" for k, v in arguments.items())
 
@@ -318,6 +335,26 @@ def main(argv: list[str] | None = None) -> int:
         help="exit 1 if any artifact needs review (for CI gates)",
     )
     p_report.set_defaults(func=cmd_report)
+
+    p_drift = sub.add_parser(
+        "drift",
+        help="detect environment, behavior, answer, and source drift between two artifact cohorts",
+    )
+    p_drift.add_argument("baseline", help="baseline artifact store (searched recursively)")
+    p_drift.add_argument("current", help="current artifact store (searched recursively)")
+    p_drift.add_argument("--json", action="store_true", help="emit the report as JSON")
+    p_drift.add_argument(
+        "--threshold",
+        type=float,
+        default=0.1,
+        help="minimum regression in a rate/score to flag (default 0.1)",
+    )
+    p_drift.add_argument(
+        "--fail-on-drift",
+        action="store_true",
+        help="exit 1 if any drift flags are raised (for CI gates)",
+    )
+    p_drift.set_defaults(func=cmd_drift)
 
     args = parser.parse_args(argv)
     return args.func(args)
