@@ -19,7 +19,14 @@ from .instrument import assured_tool
 from .merge import merge_artifacts
 from .policy import Policy, PolicyEngine, PolicyResult, Requirement
 from .provenance import ProvenanceRecord, content_hash
-from .replay import VerificationReport, save_snapshot, snapshot_resolver, verify
+from .replay import (
+    VerificationReport,
+    diff_artifacts,
+    replay_with_runner,
+    save_snapshot,
+    snapshot_resolver,
+    verify,
+)
 from .safety import SafetyContext, SafetyEngine, SafetyFinding
 from .session import AssuranceSession, current_session
 from .trust import TrustDimension, TrustEngine
@@ -48,9 +55,11 @@ __all__ = [
     "assured_tool",
     "compare_cohorts",
     "content_hash",
+    "diff_artifacts",
     "current_session",
     "load_artifacts",
     "merge_artifacts",
+    "replay_with_runner",
     "save_snapshot",
     "snapshot_resolver",
     "verify",

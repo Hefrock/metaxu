@@ -244,11 +244,24 @@ metaxu mcp-proxy --out dir/ -- <server cmd>       # wrap an MCP server transpare
 metaxu merge a.json b.json -o merged.json         # combine observers of one interaction
 metaxu report artifacts/ [--json | --html dash.html]  # governance metrics over a store
 metaxu drift baseline/ current/ [--fail-on-drift] # what changed between two cohorts
+metaxu diff original.json replay.json             # compare two runs of one interaction
+metaxu replay artifact.json --runner mod:fn       # re-run the workflow and diff it
 ```
 
 `verify` recomputes content hashes of the resources the AI saw. A
 mismatch means the source data changed since the decision was made —
 exactly the drift a reviewing clinician needs to know about.
+
+`replay` re-runs the workflow for an artifact's question — the
+`--runner module:function` entrypoint receives `(question, session)` and
+should wire its data access to the recorded snapshots rather than live
+sources — then diffs the result against the original. `reproduced: YES`
+requires the answer, tool-call sequence (names *and* arguments), claim
+set, policy outcomes, and evidence base (same resources, same content
+hashes) to all match; a replay that saw different data is not a
+reproduction even if the answer text came out the same. `diff` runs the
+same comparison on any two existing artifacts. Exit codes make both
+usable in CI.
 
 ## Governance: from artifacts to oversight
 
@@ -295,6 +308,7 @@ before and after a deploy with `--fail-on-drift` as the release gate.
 - [ ] Temporal-reasoning checks (newest labs, discontinued medications)
 - [x] Governance reporting and dashboard over artifact collections
 - [x] Drift detection between artifact cohorts (environment, behavior, answers, sources)
+- [x] Replay harness: re-run a recorded interaction and diff it against the original
 - [ ] Benchmark scenario pack with reference artifacts
 - [ ] Policy pack sharing/extension model across institutions
 
