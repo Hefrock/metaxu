@@ -114,6 +114,34 @@ with AssuranceSession(question=question, policy_engine=engine) as session:
 session.artifact.save("artifact.json")
 ```
 
+## Zero-code instrumentation: the MCP proxy
+
+For MCP-based workflows you don't need to touch agent code at all. Wrap
+any MCP stdio server with the assurance proxy — a config change, not a
+code change:
+
+```jsonc
+// in your MCP client configuration, instead of running the server directly:
+{
+  "command": "metaxu",
+  "args": ["mcp-proxy", "--out", "artifacts/",
+           "--tags", "tags.json", "--policies", "policies.json",
+           "--", "my-fhir-mcp-server", "--their", "args"]
+}
+```
+
+The proxy forwards JSON-RPC byte-for-byte (recording can never drop or
+mutate a message) while capturing every `tools/call` — name, arguments,
+result summary, errors, timing — plus content hashes and snapshots of
+everything retrieved, and the client/server/protocol versions for
+reproducibility. A `tags.json` file (`{"get_allergies": ["allergy_check"]}`)
+maps tool names to policy tags so institutional policies evaluate against
+any server's tool vocabulary. An artifact is written when the session ends.
+
+A transparent proxy can't see claims, evidence links, or the final answer
+— those never cross the MCP wire. The proxy is the zero-effort floor;
+SDK instrumentation is the ceiling.
+
 Policies are declarative data, shareable across institutions:
 
 ```json
@@ -176,9 +204,9 @@ exactly the drift a reviewing clinician needs to know about.
 
 ## Roadmap
 
+- [x] MCP proxy that instruments any MCP server transparently
 - [ ] Detached-signature envelope for artifact authentication
 - [ ] OpenTelemetry exporter (events → spans) and importer
-- [ ] MCP proxy that instruments any MCP server transparently
 - [ ] Terminology validation checks (SNOMED / LOINC / RxNorm / UCUM)
 - [ ] Temporal-reasoning checks (newest labs, discontinued medications)
 - [ ] Benchmark scenario pack with reference artifacts

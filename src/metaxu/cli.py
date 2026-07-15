@@ -4,6 +4,7 @@ Commands:
     metaxu inspect <artifact.json>              Human-readable summary
     metaxu validate <artifact.json>             Schema + structural validation
     metaxu verify <artifact.json> --snapshots d Re-verify provenance hashes
+    metaxu mcp-proxy [opts] -- <server cmd>     Transparent MCP assurance proxy
 """
 
 from __future__ import annotations
@@ -142,6 +143,26 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
+def cmd_mcp_proxy(args: argparse.Namespace) -> int:
+    from .mcp_proxy import run_proxy
+
+    command = args.server_command
+    if command and command[0] == "--":
+        command = command[1:]
+    if not command:
+        print("error: no server command given (metaxu mcp-proxy -- <cmd> ...)", file=sys.stderr)
+        return 2
+    run_proxy(
+        server_command=command,
+        out_dir=args.out,
+        question=args.question,
+        policy_file=args.policies,
+        tags_file=args.tags,
+        snapshots=not args.no_snapshots,
+    )
+    return 0
+
+
 def _fmt_args(arguments: dict) -> str:
     return ", ".join(f"{k}={v!r}" for k, v in arguments.items())
 
@@ -164,6 +185,26 @@ def main(argv: list[str] | None = None) -> int:
     p_verify.add_argument("artifact")
     p_verify.add_argument("--snapshots", help="directory of resource snapshots", default=None)
     p_verify.set_defaults(func=cmd_verify)
+
+    p_proxy = sub.add_parser(
+        "mcp-proxy",
+        help="wrap an MCP stdio server, recording an assurance artifact",
+    )
+    p_proxy.add_argument("--out", default="metaxu-artifacts", help="artifact output directory")
+    p_proxy.add_argument("--question", default=None, help="question/task to record on the artifact")
+    p_proxy.add_argument("--policies", default=None, help="policy pack (JSON/YAML) to evaluate")
+    p_proxy.add_argument(
+        "--tags", default=None, help="JSON file mapping tool names to policy tags"
+    )
+    p_proxy.add_argument(
+        "--no-snapshots", action="store_true", help="do not snapshot retrieved content"
+    )
+    p_proxy.add_argument(
+        "server_command",
+        nargs=argparse.REMAINDER,
+        help="the real MCP server command (prefix with --)",
+    )
+    p_proxy.set_defaults(func=cmd_mcp_proxy)
 
     args = parser.parse_args(argv)
     return args.func(args)
