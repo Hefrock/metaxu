@@ -47,3 +47,19 @@ jobs:
         run: |
           metaxu inspect examples/anticoagulation/out/careless-artifact.json \
             | grep -q "before_anticoagulation: FAIL"
+      - name: Governance report aggregates the store
+        run: |
+          python examples/composition/run_demo.py
+          metaxu report examples --json | python -c "
+          import json, sys
+          report = json.load(sys.stdin)
+          assert report['artifact_count'] >= 5, report['artifact_count']
+          assert report['needs_review'], 'careless artifact must need review'
+          "
+          metaxu report examples --html governance.html
+          grep -q "Needs review" governance.html
+      - name: Governance gate must flag the careless artifact
+        run: |
+          if metaxu report examples --fail-on-review; then
+            echo "gate should have failed" && exit 1
+          fi

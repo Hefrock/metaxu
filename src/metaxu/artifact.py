@@ -50,6 +50,10 @@ class AssuranceArtifact:
     id: str = field(default_factory=lambda: f"axa-{uuid.uuid4()}")
     created_at: str = field(default_factory=utcnow)
     schema_version: str = ARTIFACT_SCHEMA_VERSION
+    # The artifact_hash read back from serialized form; None for artifacts
+    # built in memory that have never been serialized. verify_integrity
+    # compares this against a recomputation over current content.
+    stored_hash: str | None = field(default=None, compare=False)
 
     def to_dict(self) -> dict[str, Any]:
         body = {
@@ -79,8 +83,10 @@ class AssuranceArtifact:
         return json.dumps(self.to_dict(), indent=indent, default=str)
 
     def save(self, path: str) -> None:
+        payload = self.to_dict()
+        self.stored_hash = payload["artifact_hash"]
         with open(path, "w", encoding="utf-8") as f:
-            f.write(self.to_json())
+            f.write(json.dumps(payload, indent=2, default=str))
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "AssuranceArtifact":
@@ -101,6 +107,7 @@ class AssuranceArtifact:
             id=data["id"],
             created_at=data["created_at"],
             schema_version=data.get("schema_version", ARTIFACT_SCHEMA_VERSION),
+            stored_hash=data.get("artifact_hash"),
         )
 
     @classmethod
@@ -109,14 +116,19 @@ class AssuranceArtifact:
             return cls.from_dict(json.load(f))
 
     def verify_integrity(self) -> bool:
-        """Recompute the artifact hash and compare with the stored one.
+        """Compare the hash captured at load time against a recomputation
+        over current content.
 
-        Returns True when the artifact was produced by :meth:`to_dict` and
-        has not been modified since.
+        For an artifact loaded from serialized form, this detects any
+        modification since it was written. An artifact built in memory
+        that has never been serialized has nothing external to verify
+        against and is trivially intact (returns True).
         """
+        if self.stored_hash is None:
+            return True
         current = self.to_dict()
-        stored_hash = current.pop("artifact_hash")
-        return stored_hash == content_hash(current)
+        current.pop("artifact_hash")
+        return self.stored_hash == content_hash(current)
 
     @classmethod
     def verify_file(cls, path: str) -> bool:

@@ -12,6 +12,7 @@ Model-agnostic, agent-agnostic, EHR-agnostic.
 
 from .artifact import ARTIFACT_SCHEMA_VERSION, AssuranceArtifact
 from .events import Event, EventType
+from .governance import aggregate_artifacts, load_artifacts
 from .adapters.mcp import MCPProxy
 from .instrument import assured_tool
 from .merge import merge_artifacts
@@ -42,9 +43,11 @@ __all__ = [
     "TrustDimension",
     "TrustEngine",
     "VerificationReport",
+    "aggregate_artifacts",
     "assured_tool",
     "content_hash",
     "current_session",
+    "load_artifacts",
     "merge_artifacts",
     "save_snapshot",
     "snapshot_resolver",
