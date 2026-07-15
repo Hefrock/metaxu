@@ -1,5 +1,7 @@
 """Metaxu: a Healthcare AI Assurance Layer.
 
+μεταξύ (metaxu) — Greek for "between"; pronounced meh-TAX-oo.
+
 Trust infrastructure that sits between AI systems and clinical users.
 Instead of returning ``Answer``, an instrumented system returns
 ``Answer + Assurance Artifact`` — a machine-readable record of provenance,

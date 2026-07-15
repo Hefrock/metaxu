@@ -1,13 +1,27 @@
 # Metaxu
 
-**A Healthcare AI Assurance Layer.**
+**μεταξύ** (*metaxu*) — Greek for "between," "among," "in the midst of."
+Pronounced **meh-TAX-oo**.
 
-Trust infrastructure that sits *between* AI systems and clinical users.
-Just as HTTPS became the trust layer for the web and OpenTelemetry the
-observability layer for distributed systems, healthcare AI lacks a
-standardized **assurance layer** providing provenance, transparency,
-auditability, and trust. Metaxu is an open framework for exactly that —
-**model-agnostic, agent-agnostic, EHR-agnostic**.
+Metaxu is an AI assurance and provenance layer for healthcare —
+model-agnostic, agent-agnostic, EHR-agnostic. The name states the
+project's position literally: this is not another healthcare AI agent,
+and not a product bolted onto one. It is the trust infrastructure that
+sits *between* AI systems and clinical users — the way HTTPS sits between
+browsers and servers, and OpenTelemetry sits between services and
+observability tooling.
+
+The word has a philosophical lineage for exactly this idea. In Plato's
+*Symposium*, Diotima describes Eros as *metaxu*: a being that exists and
+operates precisely in the between. Simone Weil used it for the relation
+that simultaneously separates and joins two realities — not a wall, not a
+bridge, but the connective tissue itself. That is a more precise
+description of an assurance layer — the *relation* between AI and
+clinician — than any "trust" or "assurance" word offers.
+
+Healthcare AI today lacks a standardized assurance layer providing
+provenance, transparency, auditability, and trust. Metaxu is an open
+framework for exactly that.
 
 Instead of an AI system returning:
 
