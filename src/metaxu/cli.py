@@ -144,7 +144,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
 
 def cmd_mcp_proxy(args: argparse.Namespace) -> int:
-    from .mcp_proxy import run_proxy
+    from .adapters.mcp import run_proxy
 
     command = args.server_command
     if command and command[0] == "--":

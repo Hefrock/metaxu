@@ -12,8 +12,8 @@ Model-agnostic, agent-agnostic, EHR-agnostic.
 
 from .artifact import ARTIFACT_SCHEMA_VERSION, AssuranceArtifact
 from .events import Event, EventType
+from .adapters.mcp import MCPProxy
 from .instrument import assured_tool
-from .mcp_proxy import MCPProxy
 from .policy import Policy, PolicyEngine, PolicyResult
 from .provenance import ProvenanceRecord, content_hash
 from .replay import VerificationReport, save_snapshot, snapshot_resolver, verify
