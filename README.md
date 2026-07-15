@@ -243,6 +243,7 @@ metaxu verify   artifact.json --snapshots dir/    # integrity + provenance re-ha
 metaxu mcp-proxy --out dir/ -- <server cmd>       # wrap an MCP server transparently
 metaxu merge a.json b.json -o merged.json         # combine observers of one interaction
 metaxu report artifacts/ [--json | --html dash.html]  # governance metrics over a store
+metaxu drift baseline/ current/ [--fail-on-drift] # what changed between two cohorts
 ```
 
 `verify` recomputes content hashes of the resources the AI saw. A
@@ -271,6 +272,17 @@ aggregate identically, because the artifact is the interoperability
 boundary. Reports may quote clinical questions, so handle the output
 under the same PHI controls as the artifacts themselves.
 
+`metaxu drift` asks the longitudinal question — what changed between a
+baseline cohort and the current one? It detects **environment drift**
+(model/prompt/tool/MCP-server versions that appeared or disappeared),
+**behavioral drift** (regressions in trust dimensions, policy pass
+rates, tool error rates, hallucination rates — improvements are reported
+but never flagged), **answer drift** (the same question answered
+differently), and **source drift** (the same resource carrying a
+different content hash — the record itself changed). Keep artifacts in
+dated directories and compare month over month, or run a benchmark
+before and after a deploy with `--fail-on-drift` as the release gate.
+
 ## Roadmap
 
 - [x] MCP proxy that instruments any MCP server transparently
@@ -282,6 +294,7 @@ under the same PHI controls as the artifacts themselves.
 - [ ] Terminology validation checks (SNOMED / LOINC / RxNorm / UCUM)
 - [ ] Temporal-reasoning checks (newest labs, discontinued medications)
 - [x] Governance reporting and dashboard over artifact collections
+- [x] Drift detection between artifact cohorts (environment, behavior, answers, sources)
 - [ ] Benchmark scenario pack with reference artifacts
 - [ ] Policy pack sharing/extension model across institutions
 

@@ -11,6 +11,7 @@ Model-agnostic, agent-agnostic, EHR-agnostic.
 """
 
 from .artifact import ARTIFACT_SCHEMA_VERSION, AssuranceArtifact
+from .drift import compare_cohorts
 from .events import Event, EventType
 from .governance import aggregate_artifacts, load_artifacts
 from .adapters.mcp import MCPProxy
@@ -45,6 +46,7 @@ __all__ = [
     "VerificationReport",
     "aggregate_artifacts",
     "assured_tool",
+    "compare_cohorts",
     "content_hash",
     "current_session",
     "load_artifacts",

@@ -63,3 +63,5 @@ jobs:
           if metaxu report examples --fail-on-review; then
             echo "gate should have failed" && exit 1
           fi
+      - name: Drift self-comparison must be clean
+        run: metaxu drift examples examples --fail-on-drift > /dev/null
