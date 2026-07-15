@@ -270,5 +270,9 @@ record itself — see the PHI section of [`spec/ARTIFACT.md`](spec/ARTIFACT.md).
 
 ## License
 
-Not yet chosen — intentionally deferred until the project's governance
-model is decided.
+[Apache License 2.0](LICENSE). Chosen to match how comparable open
+standards are licensed (OpenTelemetry, CycloneDX, the OpenAPI
+Specification): permissive enough for commercial EHR/AI vendors to
+embed the SDK and adapters, with an explicit patent grant and
+retaliation clause, and — per the [NOTICE](NOTICE) file — no grant of
+rights to the "Metaxu" name itself.
