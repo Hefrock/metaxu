@@ -76,6 +76,8 @@ def cmd_inspect(args: argparse.Namespace) -> int:
             line += f" (missing: {', '.join(check['missing'])})"
         if check.get("errored"):
             line += f" (attempted but errored: {', '.join(check['errored'])})"
+        if check.get("unmet"):
+            line += f" (condition not met: {', '.join(check['unmet'])})"
         print(line)
 
     print(f"\nSafety findings ({len(artifact.safety_checks)}):")

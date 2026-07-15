@@ -174,10 +174,29 @@ Policies are declarative data, shareable across institutions:
   "policies": [{
     "name": "before_anticoagulation",
     "trigger": {"answer_mentions": ["warfarin", "heparin", "apixaban"]},
-    "requires": ["allergy_check", "platelet_count", "pregnancy_status", "creatinine"]
+    "requires": [
+      "allergy_check",
+      "pregnancy_status",
+      "creatinine",
+      {
+        "check": "platelet_count",
+        "where": {"path": "result_summary.valueQuantity.value", "gte": 50},
+        "within_hours": 48
+      }
+    ]
   }]
 }
 ```
+
+A requirement is a plain string ("this check occurred") or an object with
+conditions: `where` evaluates a dotted path into the matching event's
+payload (`eq`/`ne`/`gt`/`gte`/`lt`/`lte`/`in`), and `within_hours`
+requires the check to be no older than N hours *at the time the answer
+was given* — "used the newest labs", not just "used some labs". Results
+distinguish four outcomes per requirement: `satisfied`, `missing` (never
+attempted), `errored` (attempted, every attempt failed), and `unmet`
+(performed, but the value or timing failed the condition) — a platelet
+check that came back too low is not a passed platelet check.
 
 ## Architecture
 

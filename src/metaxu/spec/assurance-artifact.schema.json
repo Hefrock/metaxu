@@ -183,6 +183,11 @@
           "type": "array",
           "items": { "type": "string" },
           "description": "Requirements whose only matching events recorded an error: attempted but failed. Does not satisfy the policy."
+        },
+        "unmet": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Requirements whose matching events failed a value (where) or timing (within_hours) condition: performed, but not satisfactorily."
         }
       },
       "additionalProperties": false

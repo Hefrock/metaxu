@@ -18,6 +18,7 @@ Usage::
 from __future__ import annotations
 
 import contextvars
+import json
 import os
 import platform
 import sys
@@ -182,9 +183,19 @@ class AssuranceSession:
         self.missing_data.append(entry)
         self._record(Event(type=EventType.MISSING_DATA, name=item, payload=entry))
 
-    def record_note(self, text: str, tags: list[str] | None = None) -> Event:
+    def record_note(
+        self,
+        text: str,
+        tags: list[str] | None = None,
+        data: dict[str, Any] | None = None,
+    ) -> Event:
+        """Free-form annotation. ``data`` holds structured values that
+        policy ``where`` clauses can address (path prefix ``data.``)."""
+        payload: dict[str, Any] = {"text": text}
+        if data is not None:
+            payload["data"] = data
         return self._record(
-            Event(type=EventType.NOTE, name="note", tags=tags or [], payload={"text": text})
+            Event(type=EventType.NOTE, name="note", tags=tags or [], payload=payload)
         )
 
     def set_model(self, model: str, prompt_version: str | None = None) -> None:
@@ -255,10 +266,21 @@ class AssuranceSession:
 
 
 def _summarize(result: Any, limit: int = 500) -> Any:
-    """Keep tool results in the trace small; provenance holds full hashes."""
+    """Keep tool results in the trace small; provenance holds full hashes.
+
+    Small JSON-native results are kept structured so policy ``where``
+    clauses can address their values by path
+    (e.g. ``result_summary.valueQuantity.value``).
+    """
     if result is None:
         return None
     if isinstance(result, (int, float, bool)):
         return result
+    if isinstance(result, (dict, list)):
+        try:
+            if len(json.dumps(result, default=str)) <= limit:
+                return result
+        except (TypeError, ValueError):
+            pass
     text = str(result)
     return text if len(text) <= limit else text[:limit] + "…"

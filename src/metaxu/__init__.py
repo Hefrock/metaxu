@@ -15,7 +15,7 @@ from .events import Event, EventType
 from .adapters.mcp import MCPProxy
 from .instrument import assured_tool
 from .merge import merge_artifacts
-from .policy import Policy, PolicyEngine, PolicyResult
+from .policy import Policy, PolicyEngine, PolicyResult, Requirement
 from .provenance import ProvenanceRecord, content_hash
 from .replay import VerificationReport, save_snapshot, snapshot_resolver, verify
 from .safety import SafetyContext, SafetyEngine, SafetyFinding
@@ -35,6 +35,7 @@ __all__ = [
     "PolicyEngine",
     "PolicyResult",
     "ProvenanceRecord",
+    "Requirement",
     "SafetyContext",
     "SafetyEngine",
     "SafetyFinding",
