@@ -27,6 +27,7 @@ class EventType(str, Enum):
     RETRIEVAL = "retrieval"
     CLAIM = "claim"
     EVIDENCE_LINK = "evidence_link"
+    CODING = "coding"
     POLICY_CHECK = "policy_check"
     SAFETY_CHECK = "safety_check"
     MISSING_DATA = "missing_data"

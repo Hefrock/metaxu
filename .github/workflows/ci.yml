@@ -47,6 +47,17 @@ jobs:
         run: |
           metaxu inspect examples/anticoagulation/out/careless-artifact.json \
             | grep -q "before_anticoagulation: FAIL"
+      - name: Terminology validation runs on the diligent artifact
+        run: |
+          metaxu inspect examples/anticoagulation/out/diligent-artifact.json \
+            | grep -q "Terminology"
+          metaxu report examples/anticoagulation/out --json | python -c "
+          import json, sys
+          report = json.load(sys.stdin)
+          # The diligent run cites real LOINC/RxNorm/UCUM codes; none malformed.
+          assert report['terminology']['codes_checked'] > 0, 'no codes checked'
+          assert report['terminology']['malformed'] == 0, report['terminology']
+          "
       - name: Governance report aggregates the store
         run: |
           python examples/composition/run_demo.py

@@ -54,6 +54,7 @@ class AssuranceSession:
         metadata: dict[str, Any] | None = None,
         interaction_id: str | None = None,
         observer: str = "sdk",
+        terminology_resolver: Any | None = None,
     ):
         """``interaction_id`` correlates this session with other observers
         of the same interaction (an MCP proxy, an LLM gateway, …) so their
@@ -83,6 +84,11 @@ class AssuranceSession:
         self.policy_engine = policy_engine or PolicyEngine()
         self.safety_engine = safety_engine or SafetyEngine()
         self.trust_engine = trust_engine or TrustEngine()
+        # Terminology validation always runs (format-checking is free and
+        # data-free); a caller may supply a data-backed resolver instead.
+        from .terminology import TerminologyValidator
+
+        self.terminology_validator = TerminologyValidator(terminology_resolver)
         self.artifact: AssuranceArtifact | None = None
         self._token: contextvars.Token | None = None
         self._record(Event(type=EventType.QUESTION, name="question", payload={"text": question}))
@@ -177,6 +183,39 @@ class AssuranceSession:
             )
         )
 
+    def record_coding(
+        self,
+        system: str,
+        code: str,
+        display: str | None = None,
+        tags: list[str] | None = None,
+    ) -> Event:
+        """Record a clinical terminology reference (SNOMED/LOINC/RxNorm/…).
+
+        Recorded codings are validated at finalize; malformed codes become
+        critical safety findings and lower the terminology_correctness trust
+        dimension. See ``docs/adr/0001-terminology-validation.md``.
+        """
+        return self._record(
+            Event(
+                type=EventType.CODING,
+                name=f"{system}|{code}",
+                tags=tags or [],
+                payload={"system": system, "code": code, "display": display},
+            )
+        )
+
+    def record_codings_from(
+        self, content: Any, tags: list[str] | None = None
+    ) -> list[Event]:
+        """Extract codings from a FHIR-shaped object and record each one."""
+        from .terminology import extract_codings
+
+        return [
+            self.record_coding(c.system, c.code, c.display, tags=tags)
+            for c in extract_codings(content)
+        ]
+
     def record_missing_data(self, item: str, reason: str | None = None) -> None:
         """Record that required information could not be obtained."""
         entry = {"item": item, "reason": reason}
@@ -225,8 +264,28 @@ class AssuranceSession:
                 )
             )
 
+        # Terminology validation runs before safety so malformed codes can
+        # surface as safety findings, and before trust for its dimension.
+        from .terminology import Coding
+
+        codings = [
+            Coding(
+                system=e.payload["system"],
+                code=e.payload["code"],
+                display=e.payload.get("display"),
+            )
+            for e in self.events
+            if e.type == EventType.CODING
+        ]
+        terminology_results = [
+            v.to_dict() for v in self.terminology_validator.validate(codings)
+        ]
+
         safety_ctx = SafetyContext(
-            answer=self.answer, events=self.events, provenance=self.provenance
+            answer=self.answer,
+            events=self.events,
+            provenance=self.provenance,
+            terminology=terminology_results,
         )
         safety_findings = self.safety_engine.evaluate(safety_ctx)
         safety_dicts = [f.to_dict() for f in safety_findings]
@@ -241,6 +300,7 @@ class AssuranceSession:
             policy_checks=policy_results,
             safety_findings=safety_findings,
             missing_data=self.missing_data,
+            terminology=terminology_results,
         )
 
         self.artifact = AssuranceArtifact(
@@ -255,6 +315,7 @@ class AssuranceSession:
             provenance=list(self.provenance),
             policy_checks=policy_results,
             safety_checks=safety_dicts,
+            terminology=terminology_results,
             missing_data=list(self.missing_data),
             trust_scores=trust_scores,
             reproducibility=dict(self.reproducibility),

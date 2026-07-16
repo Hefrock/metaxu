@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://metaxu.dev/spec/assurance-artifact/0.2.0/schema.json",
+  "$id": "https://metaxu.dev/spec/assurance-artifact/0.3.0/schema.json",
   "title": "Metaxu Assurance Artifact",
   "description": "Machine-readable assurance record for one AI-mediated clinical interaction. See spec/ARTIFACT.md for the prose specification.",
   "type": "object",
@@ -61,6 +61,11 @@
     "safety_checks": {
       "type": "array",
       "items": { "$ref": "#/$defs/safetyFinding" }
+    },
+    "terminology": {
+      "type": "array",
+      "description": "Validation results for clinical terminology codes (SNOMED CT, LOINC, RxNorm, UCUM, ICD). Each carries the terminology_version it was checked against.",
+      "items": { "$ref": "#/$defs/codeValidation" }
     },
     "missing_data": {
       "type": "array",
@@ -203,6 +208,26 @@
         "details": { "type": "object" }
       },
       "additionalProperties": false
+    },
+    "codeValidation": {
+      "type": "object",
+      "required": ["system", "code", "valid", "status", "terminology_version"],
+      "properties": {
+        "system": { "type": "string" },
+        "code": { "type": "string" },
+        "valid": { "type": "boolean" },
+        "status": {
+          "type": "string",
+          "description": "active | well-formed | malformed | inactive | unknown | unvalidated. Known values are documented, not enumerated, so a data-backed resolver can add its own."
+        },
+        "terminology_version": {
+          "type": "string",
+          "description": "The terminology release the check consulted (e.g. 'LOINC-2.78'), or 'format-check' for algorithmic validation. Records what was checked against so results are auditable and reproducible."
+        },
+        "display": { "type": ["string", "null"] },
+        "message": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
     },
     "trustDimension": {
       "type": "object",

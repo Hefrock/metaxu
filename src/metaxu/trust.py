@@ -53,6 +53,7 @@ class TrustEngine:
         policy_checks: list[dict[str, Any]],
         safety_findings: list[SafetyFinding],
         missing_data: list[dict[str, Any]],
+        terminology: list[dict[str, Any]] | None = None,
     ) -> dict[str, dict[str, Any]]:
         dims = {
             "provenance_coverage": self._provenance_coverage(events),
@@ -61,7 +62,23 @@ class TrustEngine:
             "data_completeness": self._completeness(missing_data),
             "data_freshness": self._freshness(provenance),
         }
+        # Terminology correctness is only meaningful when codes were used;
+        # omit the dimension entirely for interactions with no codings.
+        if terminology:
+            dims["terminology_correctness"] = self._terminology(terminology)
         return {name: dim.to_dict() for name, dim in dims.items()}
+
+    def _terminology(self, terminology: list[dict[str, Any]]) -> TrustDimension:
+        total = len(terminology)
+        malformed = sum(1 for t in terminology if not t.get("valid"))
+        return TrustDimension(
+            score=(total - malformed) / total if total else 1.0,
+            rationale=(
+                f"{total - malformed} of {total} coded value(s) passed validation"
+                + (f" ({malformed} malformed)" if malformed else "")
+            ),
+            inputs={"codings": total, "malformed": malformed},
+        )
 
     def _provenance_coverage(self, events: list[Event]) -> TrustDimension:
         claims = [e for e in events if e.type == EventType.CLAIM]

@@ -63,6 +63,12 @@ def aggregate_artifacts(artifacts: list[AssuranceArtifact]) -> dict[str, Any]:
             "hallucination_rate": None,
             "unsupported_claim_rate": None,
         },
+        "terminology": {
+            "codes_checked": 0,
+            "malformed": 0,
+            "malformed_rate": None,
+            "by_system": {},
+        },
         "tools": {},
         "provenance": {"total_records": 0, "by_source_system": {}},
         "missing_data": {},
@@ -93,6 +99,9 @@ def aggregate_artifacts(artifacts: list[AssuranceArtifact]) -> dict[str, Any]:
     )
     source_counter: Counter = Counter()
     missing_counter: Counter = Counter()
+    codes_checked = 0
+    codes_malformed = 0
+    malformed_by_system: Counter = Counter()
 
     for artifact in artifacts:
         integrity_ok = artifact.verify_integrity()
@@ -125,6 +134,12 @@ def aggregate_artifacts(artifacts: list[AssuranceArtifact]) -> dict[str, Any]:
             hallucinating += 1
         if "unsupported_claims" in artifact_checks:
             unsupported += 1
+
+        for result in artifact.terminology:
+            codes_checked += 1
+            if not result.get("valid"):
+                codes_malformed += 1
+                malformed_by_system[result.get("system", "unknown")] += 1
 
         for call in artifact.tool_trace:
             stats = tool_stats[call["name"]]
@@ -187,6 +202,12 @@ def aggregate_artifacts(artifacts: list[AssuranceArtifact]) -> dict[str, Any]:
     )
     report["safety"]["hallucination_rate"] = round(hallucinating / len(artifacts), 4)
     report["safety"]["unsupported_claim_rate"] = round(unsupported / len(artifacts), 4)
+    report["terminology"] = {
+        "codes_checked": codes_checked,
+        "malformed": codes_malformed,
+        "malformed_rate": round(codes_malformed / codes_checked, 4) if codes_checked else None,
+        "by_system": dict(malformed_by_system.most_common()),
+    }
     report["tools"] = {
         name: {
             "calls": stats["calls"],
@@ -253,6 +274,17 @@ def render_text(report: dict[str, Any]) -> str:
             lines.append(f"  {check:<24} {n} finding(s)")
     else:
         lines.append("  no findings")
+
+    terminology = report["terminology"]
+    if terminology["codes_checked"]:
+        lines.append("\nTerminology:")
+        lines.append(
+            f"  {terminology['codes_checked']} code(s) checked, "
+            f"{terminology['malformed']} malformed "
+            f"({terminology['malformed_rate']:.0%})"
+        )
+        for system, n in terminology["by_system"].items():
+            lines.append(f"  malformed {system}: {n}")
 
     if report["tools"]:
         lines.append("\nTool reliability:")

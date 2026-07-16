@@ -25,6 +25,7 @@ class SafetyContext:
     answer: str | None
     events: list[Event]
     provenance: list[ProvenanceRecord]
+    terminology: list[dict[str, Any]] = field(default_factory=list)
 
     def events_of(self, event_type: EventType) -> list[Event]:
         return [e for e in self.events if e.type == event_type]
@@ -118,6 +119,27 @@ def check_ignored_allergies(ctx: SafetyContext) -> list[SafetyFinding]:
     ]
 
 
+def check_malformed_terminology(ctx: SafetyContext) -> list[SafetyFinding]:
+    """A code that fails format/checksum validation is likely hallucinated."""
+    findings = []
+    for result in ctx.terminology:
+        if result.get("valid"):
+            continue
+        findings.append(
+            SafetyFinding(
+                check="malformed_terminology",
+                severity="critical",
+                message=(
+                    f"Invalid {result.get('system')} code "
+                    f"{result.get('code')!r}: {result.get('message')}"
+                ),
+                subject=f"{result.get('system')}|{result.get('code')}",
+                details={"terminology_version": result.get("terminology_version")},
+            )
+        )
+    return findings
+
+
 def check_missing_answer(ctx: SafetyContext) -> list[SafetyFinding]:
     """Sessions must terminate with an explicit answer (even 'I don't know')."""
     if ctx.answer is None:
@@ -135,6 +157,7 @@ DEFAULT_CHECKS: list[SafetyCheck] = [
     check_unsupported_claims,
     check_hallucinated_resources,
     check_ignored_allergies,
+    check_malformed_terminology,
     check_missing_answer,
 ]
 

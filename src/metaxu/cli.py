@@ -90,6 +90,17 @@ def cmd_inspect(args: argparse.Namespace) -> int:
     for finding in artifact.safety_checks:
         print(f"  - [{finding['severity']}] {finding['check']}: {finding['message']}")
 
+    if artifact.terminology:
+        malformed = sum(1 for t in artifact.terminology if not t.get("valid"))
+        version = artifact.terminology[0].get("terminology_version", "?")
+        print(
+            f"\nTerminology ({len(artifact.terminology)} code(s), "
+            f"{malformed} malformed, checked against {version}):"
+        )
+        for result in artifact.terminology:
+            mark = "ok " if result["valid"] else "BAD"
+            print(f"  [{mark}] {result['system']} {result['code']} ({result['status']})")
+
     conflicts = artifact.metadata.get("dev.metaxu/merge_conflicts", [])
     if conflicts:
         print(f"\nMerge conflicts ({len(conflicts)}) — observers disagreed:")
