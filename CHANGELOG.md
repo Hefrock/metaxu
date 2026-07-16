@@ -25,7 +25,7 @@ versions artifacts were produced under).
 
 ## [0.3.0] — 2026-07-16
 
-First public release.
+First public release candidate.
 
 ### Added
 - **Terminology validation** ([ADR 0001](docs/adr/0001-terminology-validation.md)):
