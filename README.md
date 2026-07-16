@@ -148,6 +148,39 @@ A transparent proxy can't see claims, evidence links, or the final answer
 — those never cross the MCP wire. The proxy is the zero-effort floor;
 SDK instrumentation is the ceiling.
 
+## OpenTelemetry export
+
+Assurance doesn't have to live in its own silo. The OpenTelemetry
+exporter turns an artifact into a span tree, so an assurance session shows
+up wherever a team already sends traces (`pip install metaxu[otel]`):
+
+```python
+from metaxu.adapters.otel import export_artifact
+export_artifact(artifact, tracer=my_tracer)     # into your existing TracerProvider
+```
+```bash
+metaxu otel artifact.json                        # print spans to the console
+metaxu otel artifact.json --endpoint http://localhost:4318/v1/traces
+```
+
+One root span per interaction carries the model, trust dimensions, and
+policy/safety/terminology roll-ups; tool calls and retrievals become child
+spans (timed by their recorded durations); claims, policy checks, and
+findings become span events. The root span's **status is ERROR** when the
+interaction has a critical safety finding, a failed policy, or a broken
+integrity hash — so an assurance regression trips the same alerting a
+latency spike would. Attributes use OpenTelemetry's `gen_ai.*` conventions
+where they fit and a `metaxu.*` namespace otherwise.
+
+**PHI note:** question, answer, and claim *text* are omitted by default —
+observability backends are a different trust boundary than the artifact
+store. Pass `capture_content=True` (or `--capture-content`) only when the
+destination is authorized for PHI.
+
+The exporter is the first of the adapter roadmap in
+[ADR 0002](docs/adr/0002-adapter-strategy.md); the core stays stdlib-only,
+so OpenTelemetry is an optional extra imported lazily.
+
 ## Composing observers: correlation and merge
 
 No single interception point sees a whole interaction, so artifacts are
@@ -372,7 +405,8 @@ the versioning discipline — is recorded in
 - [x] MCP proxy that instruments any MCP server transparently
 - [x] Multi-observer correlation and artifact merging
 - Adapter roadmap (priority order in [ADR 0002](docs/adr/0002-adapter-strategy.md)):
-  - [ ] OpenTelemetry adapter (events ↔ spans; map to GenAI semantic conventions) — **next**
+  - [x] OpenTelemetry **exporter** (artifact → spans, `gen_ai.*` conventions, PHI-safe by default)
+  - [ ] OpenTelemetry importer (spans → assurance events)
   - [ ] CDS Hooks / SMART on FHIR adapter (the healthcare-native decision surface)
   - [ ] LLM API gateway adapter (closes the answer/claims blind spot without SDK adoption)
 - [ ] Detached-signature envelope for artifact authentication

@@ -9,6 +9,20 @@ package together under [semantic versioning](https://semver.org/).
 entries record the pre-publication development history (the schema
 versions artifacts were produced under).
 
+## [Unreleased]
+
+### Added
+- **OpenTelemetry exporter** (`metaxu.adapters.otel`, `metaxu otel`): turns
+  an artifact into an OpenTelemetry span tree — one root span per
+  interaction (model, trust dimensions, policy/safety/terminology
+  roll-ups), child spans for tool calls and retrievals, and span events for
+  claims, policy checks, and findings. Root span status is ERROR on a
+  critical safety finding, failed policy, or integrity mismatch. Uses
+  `gen_ai.*` semantic conventions where they fit; PHI text is omitted unless
+  `capture_content=True`. Optional dependency: `pip install metaxu[otel]`;
+  imported lazily so the core stays dependency-free. First of the adapter
+  roadmap in [ADR 0002](docs/adr/0002-adapter-strategy.md).
+
 ## [0.3.0] — 2026-07-16
 
 First public release.

@@ -11,6 +11,7 @@ Commands:
     metaxu diff <original> <replay> [--json]    Compare two artifacts of one interaction
     metaxu replay <artifact> --runner mod:fn    Re-run the workflow and diff the result
     metaxu graph <artifact> [--format ...]      Render the evidence graph
+    metaxu otel <artifact> [--capture-content]  Export the artifact as OpenTelemetry spans
 """
 
 from __future__ import annotations
@@ -357,6 +358,37 @@ def cmd_graph(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_otel(args: argparse.Namespace) -> int:
+    try:
+        import opentelemetry  # noqa: F401  (availability probe)
+    except ImportError:
+        print(
+            "error: OpenTelemetry export requires the 'otel' extra: "
+            "pip install metaxu[otel]",
+            file=sys.stderr,
+        )
+        return 2
+    from .adapters.otel import export_file
+    tracer = None
+    if args.endpoint:
+        try:
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+                OTLPSpanExporter,
+            )
+        except ImportError:
+            print(
+                "error: --endpoint needs the OTLP exporter: "
+                "pip install opentelemetry-exporter-otlp-proto-http",
+                file=sys.stderr,
+            )
+            return 2
+        from .adapters.otel import build_tracer
+
+        tracer = build_tracer(OTLPSpanExporter(endpoint=args.endpoint))
+    export_file(args.artifact, tracer=tracer, capture_content=args.capture_content)
+    return 0
+
+
 def _fmt_args(arguments: dict) -> str:
     return ", ".join(f"{k}={v!r}" for k, v in arguments.items())
 
@@ -503,6 +535,22 @@ def main(argv: list[str] | None = None) -> int:
         help="impact analysis: list everything resting on nodes matching this id/label fragment",
     )
     p_graph.set_defaults(func=cmd_graph)
+
+    p_otel = sub.add_parser(
+        "otel", help="export an artifact as OpenTelemetry spans (needs metaxu[otel])"
+    )
+    p_otel.add_argument("artifact")
+    p_otel.add_argument(
+        "--endpoint",
+        default=None,
+        help="OTLP/HTTP endpoint (e.g. http://localhost:4318/v1/traces); default prints to console",
+    )
+    p_otel.add_argument(
+        "--capture-content",
+        action="store_true",
+        help="include question/answer/claim text in spans (PHI — only for authorized backends)",
+    )
+    p_otel.set_defaults(func=cmd_otel)
 
     args = parser.parse_args(argv)
     return args.func(args)

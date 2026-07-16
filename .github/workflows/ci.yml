@@ -36,10 +36,13 @@ jobs:
           python -m pip install --upgrade build "twine>=6" "packaging>=24.2"
           python -m build
           python -m twine check dist/*
-      - name: Wheel installs and runs standalone
+      - name: Wheel installs and runs standalone (stdlib-only core, no extras)
         run: |
           python -m venv /tmp/v && /tmp/v/bin/pip install dist/*.whl
           /tmp/v/bin/metaxu --help > /dev/null
+          # Core must import and run without any optional extra (no opentelemetry).
+          /tmp/v/bin/python -c "import metaxu; from metaxu import AssuranceSession; \
+            s=AssuranceSession(question='q'); s.set_answer('a'); s.finalize(); print('core ok')"
 
   demo:
     # End-to-end: the demo must run, its artifacts must validate against
@@ -101,6 +104,12 @@ jobs:
           grep -q "No contraindication to anticoagulation identified" graph.txt
           metaxu graph examples/anticoagulation/out/diligent-artifact.json --format mermaid \
             | head -1 | grep -q "flowchart TD"
+      - name: OpenTelemetry export emits spans
+        run: |
+          # dev extra includes opentelemetry; careless artifact -> ERROR root span.
+          metaxu otel examples/anticoagulation/out/careless-artifact.json > otel.txt
+          grep -q "metaxu.interaction" otel.txt
+          grep -q "gen_ai.tool.name" otel.txt
       - name: Drift self-comparison must be clean
         run: metaxu drift examples examples --fail-on-drift > /dev/null
       - name: Diff must distinguish diligent from careless
