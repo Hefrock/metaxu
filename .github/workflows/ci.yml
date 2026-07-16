@@ -74,6 +74,14 @@ jobs:
           if metaxu report examples --fail-on-review; then
             echo "gate should have failed" && exit 1
           fi
+      - name: Evidence graph shows the multi-hop chain
+        run: |
+          metaxu graph examples/anticoagulation/out/diligent-artifact.json > graph.txt
+          grep -q "PlanDefinition/guideline-af-anticoag" graph.txt
+          grep -q "SNOMED-CT 49436004" graph.txt
+          grep -q "No contraindication to anticoagulation identified" graph.txt
+          metaxu graph examples/anticoagulation/out/diligent-artifact.json --format mermaid \
+            | head -1 | grep -q "flowchart TD"
       - name: Drift self-comparison must be clean
         run: metaxu drift examples examples --fail-on-drift > /dev/null
       - name: Diff must distinguish diligent from careless

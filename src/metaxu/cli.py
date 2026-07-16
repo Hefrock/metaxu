@@ -10,6 +10,7 @@ Commands:
     metaxu drift <baseline> <current> [--json]  Detect drift between artifact cohorts
     metaxu diff <original> <replay> [--json]    Compare two artifacts of one interaction
     metaxu replay <artifact> --runner mod:fn    Re-run the workflow and diff the result
+    metaxu graph <artifact> [--format ...]      Render the evidence graph
 """
 
 from __future__ import annotations
@@ -326,6 +327,36 @@ def cmd_replay(args: argparse.Namespace) -> int:
     return 0 if diff["reproduced"] else 1
 
 
+def cmd_graph(args: argparse.Namespace) -> int:
+    from .graph import EvidenceGraph
+
+    graph = EvidenceGraph.from_artifact(_load(args.artifact))
+
+    if args.dependents:
+        matches = graph.find(args.dependents)
+        if not matches:
+            print(f"error: no node matching {args.dependents!r}", file=sys.stderr)
+            return 2
+        for node in matches:
+            print(f"Dependents of {node.type} {node.label} ({node.id}):")
+            dependents = graph.dependents(node.id)
+            if not dependents:
+                print("  (nothing rests on this node)")
+            for dep in dependents:
+                print(f"  - {dep.type}: {dep.label}")
+        return 0
+
+    if args.format == "json":
+        print(graph.to_json())
+    elif args.format == "mermaid":
+        print(graph.to_mermaid())
+    elif args.format == "dot":
+        print(graph.to_dot())
+    else:
+        print(graph.render_text())
+    return 0
+
+
 def _fmt_args(arguments: dict) -> str:
     return ", ".join(f"{k}={v!r}" for k, v in arguments.items())
 
@@ -454,6 +485,24 @@ def main(argv: list[str] | None = None) -> int:
     p_replay.add_argument("--out", default=None, help="write the replay artifact here")
     p_replay.add_argument("--json", action="store_true", help="emit the diff as JSON")
     p_replay.set_defaults(func=cmd_replay)
+
+    p_graph = sub.add_parser(
+        "graph", help="render an artifact's evidence graph (the reasoning chain)"
+    )
+    p_graph.add_argument("artifact")
+    p_graph.add_argument(
+        "--format",
+        choices=["text", "json", "mermaid", "dot"],
+        default="text",
+        help="output format (default: text tree)",
+    )
+    p_graph.add_argument(
+        "--dependents",
+        default=None,
+        metavar="NODE",
+        help="impact analysis: list everything resting on nodes matching this id/label fragment",
+    )
+    p_graph.set_defaults(func=cmd_graph)
 
     args = parser.parse_args(argv)
     return args.func(args)

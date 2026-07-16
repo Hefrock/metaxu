@@ -14,6 +14,7 @@ from .artifact import ARTIFACT_SCHEMA_VERSION, AssuranceArtifact
 from .drift import compare_cohorts
 from .events import Event, EventType
 from .governance import aggregate_artifacts, load_artifacts
+from .graph import EvidenceGraph
 from .adapters.mcp import MCPProxy
 from .instrument import assured_tool
 from .merge import merge_artifacts
@@ -49,6 +50,7 @@ __all__ = [
     "Coding",
     "Event",
     "EventType",
+    "EvidenceGraph",
     "FormatResolver",
     "MCPProxy",
     "Policy",

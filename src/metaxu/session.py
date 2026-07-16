@@ -166,10 +166,18 @@ class AssuranceSession:
     def link_evidence(
         self,
         claim: Event,
-        sources: list[ProvenanceRecord],
+        sources: list[ProvenanceRecord | Event],
         relation: str = "supports",
     ) -> Event:
-        """Link a claim to the provenance records that support it."""
+        """Link a claim to what supports it.
+
+        ``sources`` may mix provenance records (retrieved resources) and
+        other claim events — intermediate reasoning steps — so multi-hop
+        chains (claim resting on claim resting on data) become edges in
+        the evidence graph rather than flat co-citations.
+        """
+        provenance_ids = [s.id for s in sources if isinstance(s, ProvenanceRecord)]
+        claim_ids = [s.id for s in sources if isinstance(s, Event)]
         return self._record(
             Event(
                 type=EventType.EVIDENCE_LINK,
@@ -177,7 +185,8 @@ class AssuranceSession:
                 parent_id=claim.id,
                 payload={
                     "claim_id": claim.id,
-                    "provenance_ids": [s.id for s in sources],
+                    "provenance_ids": provenance_ids,
+                    "claim_ids": claim_ids,
                     "relation": relation,
                 },
             )
@@ -189,30 +198,41 @@ class AssuranceSession:
         code: str,
         display: str | None = None,
         tags: list[str] | None = None,
+        provenance: ProvenanceRecord | None = None,
     ) -> Event:
         """Record a clinical terminology reference (SNOMED/LOINC/RxNorm/…).
 
         Recorded codings are validated at finalize; malformed codes become
         critical safety findings and lower the terminology_correctness trust
         dimension. See ``docs/adr/0001-terminology-validation.md``.
+
+        ``provenance`` links the coding to the resource that carried it, so
+        the evidence graph gets a resource → coding edge.
         """
+        payload: dict[str, Any] = {"system": system, "code": code, "display": display}
+        if provenance is not None:
+            payload["provenance_id"] = provenance.id
         return self._record(
             Event(
                 type=EventType.CODING,
                 name=f"{system}|{code}",
                 tags=tags or [],
-                payload={"system": system, "code": code, "display": display},
+                payload=payload,
             )
         )
 
     def record_codings_from(
-        self, content: Any, tags: list[str] | None = None
+        self,
+        content: Any,
+        tags: list[str] | None = None,
+        provenance: ProvenanceRecord | None = None,
     ) -> list[Event]:
-        """Extract codings from a FHIR-shaped object and record each one."""
+        """Extract codings from a FHIR-shaped object and record each one,
+        optionally linked to the provenance record the object came from."""
         from .terminology import extract_codings
 
         return [
-            self.record_coding(c.system, c.code, c.display, tags=tags)
+            self.record_coding(c.system, c.code, c.display, tags=tags, provenance=provenance)
             for c in extract_codings(content)
         ]
 
@@ -243,9 +263,20 @@ class AssuranceSession:
         if prompt_version is not None:
             self.reproducibility["prompt_version"] = prompt_version
 
-    def set_answer(self, answer: str) -> None:
+    def set_answer(self, answer: str, based_on: list[Event] | None = None) -> None:
+        """Record the final answer.
+
+        ``based_on`` names the claims the answer actually rests on, giving
+        the evidence graph explicit answer → claim edges. When omitted,
+        the graph falls back to connecting the answer to every claim,
+        marking those edges implicit — recorded reasoning always beats
+        inferred reasoning.
+        """
         self.answer = answer
-        self._record(Event(type=EventType.ANSWER, name="answer", payload={"text": answer}))
+        payload: dict[str, Any] = {"text": answer}
+        if based_on:
+            payload["based_on_claim_ids"] = [c.id for c in based_on]
+        self._record(Event(type=EventType.ANSWER, name="answer", payload=payload))
 
     # -- finalization -----------------------------------------------------
 

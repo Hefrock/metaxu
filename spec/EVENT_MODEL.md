@@ -42,12 +42,12 @@ in a multi-agent workflow — can participate by appending JSON objects.
 | `tool_invocation` | Any tool/function/MCP call completes | `arguments`, `result_summary`, `error`, `duration_ms` |
 | `retrieval` | A resource is fetched from a source of record | `provenance_id`, `source_system` |
 | `claim` | The AI asserts an intermediate fact | `text` |
-| `evidence_link` | A claim is connected to retrieved resources | `claim_id`, `provenance_ids`, `relation` |
-| `coding` | A clinical terminology code is referenced | `system`, `code`, `display` |
+| `evidence_link` | A claim is connected to what supports it | `claim_id`, `provenance_ids`, `claim_ids`, `relation` |
+| `coding` | A clinical terminology code is referenced | `system`, `code`, `display`, `provenance_id` |
 | `policy_check` | The policy engine evaluates a policy (at finalize) | `policy`, `triggered`, `passed`, `missing` |
 | `safety_check` | The safety engine reports a finding (at finalize) | `check`, `severity`, `message` |
 | `missing_data` | Required information could not be obtained | `item`, `reason` |
-| `answer` | The final answer is recorded | `text` |
+| `answer` | The final answer is recorded | `text`, `based_on_claim_ids` |
 | `note` | Free-form annotation (also usable to satisfy policy tags) | `text` |
 
 Unknown event types MUST be preserved and ignored by consumers, not

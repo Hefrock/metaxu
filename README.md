@@ -247,6 +247,7 @@ metaxu report artifacts/ [--json | --html dash.html]  # governance metrics over 
 metaxu drift baseline/ current/ [--fail-on-drift] # what changed between two cohorts
 metaxu diff original.json replay.json             # compare two runs of one interaction
 metaxu replay artifact.json --runner mod:fn       # re-run the workflow and diff it
+metaxu graph artifact.json [--format mermaid]     # render the reasoning chain
 ```
 
 `verify` recomputes content hashes of the resources the AI saw. A
@@ -297,6 +298,42 @@ different content hash — the record itself changed). Keep artifacts in
 dated directories and compare month over month, or run a benchmark
 before and after a deploy with `--fail-on-drift` as the release gate.
 
+## The evidence graph
+
+"Where did this answer come from?" has a structural answer, not just a
+log. Every artifact encodes a traversable reasoning graph — question →
+answer → claims (including claim-on-claim reasoning steps) → resources →
+codings — and `metaxu graph` renders it:
+
+```
+? Patient pat-001 has new-onset atrial fibrillation. Is it appropriate …
+│
+★ Anticoagulation (e.g. apixaban) appears appropriate…
+├─ • No contraindication to anticoagulation identified. [based_on]
+│  ├─ • Platelet count is 232 10*3/uL (adequate). [supports]
+│  │  └─ ▤ Observation/obs-plt-9001 [supports]
+│  │     ├─ # LOINC 777-3 [has_coding]
+│  │     └─ # UCUM 10*3/uL [has_coding]
+│  └─ …creatinine, allergies…
+└─ • Guideline recommends oral anticoagulation for nonvalvular AF… [based_on]
+   └─ ▤ PlanDefinition/guideline-af-anticoag [supports]
+      └─ # SNOMED-CT 49436004 [has_coding]
+
+Evidence not connected to the answer:
+  ▤ Patient/pat-001
+```
+
+Record the linkage with the same session API: `link_evidence` accepts
+claims as well as resources (multi-hop chains), and
+`set_answer(..., based_on=[claims])` names what the answer actually
+rests on — omit it and the graph connects the answer to every claim but
+marks those edges *implicit*, so recorded reasoning is never conflated
+with inferred. The graph is a derived view over the event stream (no
+schema change; any consumer can rebuild it), and it works in reverse
+too: `metaxu graph artifact.json --dependents obs-plt-9001` answers
+*"this lab was corrected — what rests on it?"* Output formats: text
+tree, JSON, Mermaid, DOT.
+
 ## Terminology validation
 
 Clinical codes the AI cites — a LOINC code for a lab, a SNOMED CT concept,
@@ -333,6 +370,7 @@ the versioning discipline — is recorded in
 - [ ] LLM API gateway adapter (closes the answer/claims blind spot without SDK adoption)
 - [ ] Detached-signature envelope for artifact authentication
 - [x] Terminology validation — format/checksum (SNOMED / LOINC / RxNorm / UCUM / ICD) + pluggable resolver interface ([ADR 0001](docs/adr/0001-terminology-validation.md))
+- [x] Evidence graph as a traversable structure (multi-hop chains, dependents tracing, Mermaid/DOT export)
 - [ ] Terminology data backends: bundled LOINC/RxNorm, SNOMED local-build (see ADR 0001)
 - [ ] Temporal-reasoning checks (newest labs, discontinued medications)
 - [x] Governance reporting and dashboard over artifact collections
