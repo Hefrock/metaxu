@@ -65,3 +65,9 @@ jobs:
           fi
       - name: Drift self-comparison must be clean
         run: metaxu drift examples examples --fail-on-drift > /dev/null
+      - name: Diff must distinguish diligent from careless
+        run: |
+          if metaxu diff examples/anticoagulation/out/diligent-artifact.json \
+               examples/anticoagulation/out/careless-artifact.json --fail-on-diff > /dev/null; then
+            echo "diff should have failed" && exit 1
+          fi

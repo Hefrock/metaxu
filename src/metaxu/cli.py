@@ -8,6 +8,8 @@ Commands:
     metaxu merge -o out.json a.json b.json ...  Merge partial artifacts (one interaction)
     metaxu report <dir> [--json | --html out]   Governance report over an artifact store
     metaxu drift <baseline> <current> [--json]  Detect drift between artifact cohorts
+    metaxu diff <original> <replay> [--json]    Compare two artifacts of one interaction
+    metaxu replay <artifact> --runner mod:fn    Re-run the workflow and diff the result
 """
 
 from __future__ import annotations
@@ -253,6 +255,66 @@ def cmd_drift(args: argparse.Namespace) -> int:
     return 0
 
 
+def _print_diff(diff: dict, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(diff, indent=2))
+        return
+    print(f"original: {diff['original_artifact']}")
+    print(f"replay:   {diff['replay_artifact']}")
+    print(f"reproduced: {'YES' if diff['reproduced'] else 'NO'}")
+    for aspect in ("answer", "tool_calls", "claims", "policies"):
+        print(f"  {aspect:<12} {'match' if diff[aspect]['match'] else 'DIFFER'}")
+    provenance = diff["provenance"]
+    print(
+        f"  provenance   {provenance['shared_resources']} shared resource(s), "
+        f"{len(provenance['hash_mismatches'])} hash mismatch(es)"
+    )
+    if diff["differences"]:
+        print("Differences:")
+        for difference in diff["differences"]:
+            print(f"  - {difference}")
+
+
+def cmd_diff(args: argparse.Namespace) -> int:
+    from .replay import diff_artifacts
+
+    diff = diff_artifacts(_load(args.original), _load(args.replay))
+    _print_diff(diff, args.json)
+    if args.fail_on_diff and not diff["reproduced"]:
+        return 1
+    return 0
+
+
+def cmd_replay(args: argparse.Namespace) -> int:
+    import importlib
+    import os as _os
+    import sys as _sys
+
+    from .policy import PolicyEngine
+    from .replay import replay_with_runner
+
+    module_name, _, func_name = args.runner.partition(":")
+    if not module_name or not func_name:
+        print("error: --runner must be 'module.path:function'", file=sys.stderr)
+        return 2
+    _sys.path.insert(0, _os.getcwd())
+    try:
+        runner = getattr(importlib.import_module(module_name), func_name)
+    except (ImportError, AttributeError) as exc:
+        print(f"error: could not load runner {args.runner!r}: {exc}", file=sys.stderr)
+        return 2
+
+    artifact = _load(args.artifact)
+    engine = PolicyEngine.from_file(args.policies) if args.policies else None
+    replay_artifact, diff = replay_with_runner(artifact, runner, policy_engine=engine)
+    if args.out:
+        replay_artifact.save(args.out)
+    _print_diff(diff, args.json)
+    if args.out and not args.json:
+        print(f"replay artifact written to {args.out}")
+    return 0 if diff["reproduced"] else 1
+
+
 def _fmt_args(arguments: dict) -> str:
     return ", ".join(f"{k}={v!r}" for k, v in arguments.items())
 
@@ -355,6 +417,32 @@ def main(argv: list[str] | None = None) -> int:
         help="exit 1 if any drift flags are raised (for CI gates)",
     )
     p_drift.set_defaults(func=cmd_drift)
+
+    p_diff = sub.add_parser(
+        "diff", help="compare two artifacts that describe the same interaction"
+    )
+    p_diff.add_argument("original")
+    p_diff.add_argument("replay")
+    p_diff.add_argument("--json", action="store_true", help="emit the diff as JSON")
+    p_diff.add_argument(
+        "--fail-on-diff", action="store_true", help="exit 1 unless fully reproduced"
+    )
+    p_diff.set_defaults(func=cmd_diff)
+
+    p_replay = sub.add_parser(
+        "replay",
+        help="re-run the workflow for an artifact's question and diff against the original",
+    )
+    p_replay.add_argument("artifact")
+    p_replay.add_argument(
+        "--runner",
+        required=True,
+        help="python entrypoint 'module.path:function' taking (question, session)",
+    )
+    p_replay.add_argument("--policies", default=None, help="policy pack for the replay session")
+    p_replay.add_argument("--out", default=None, help="write the replay artifact here")
+    p_replay.add_argument("--json", action="store_true", help="emit the diff as JSON")
+    p_replay.set_defaults(func=cmd_replay)
 
     args = parser.parse_args(argv)
     return args.func(args)
