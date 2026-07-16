@@ -210,6 +210,7 @@ AssuranceSession ──── events: tool calls, retrievals, claims, evidence l
       ├── Policy engine        declarative "these checks must have occurred"
       ├── Safety engine        structural checks: unsupported claims,
       │                        hallucinated resources, ignored allergies, …
+      ├── Terminology engine   SNOMED/LOINC/RxNorm/UCUM/ICD code validation
       └── Trust engine         multiple dimensions, never one score
       │
       ▼
@@ -296,6 +297,33 @@ different content hash — the record itself changed). Keep artifacts in
 dated directories and compare month over month, or run a benchmark
 before and after a deploy with `--fail-on-drift` as the release gate.
 
+## Terminology validation
+
+Clinical codes the AI cites — a LOINC code for a lab, a SNOMED CT concept,
+an RxNorm drug, a UCUM unit — are recorded as codings and validated at
+finalize. The built-in `FormatResolver` needs no data and no license: it
+checks shape and **check digits** (LOINC Luhn mod-10, SNOMED CT Verhoeff)
+to catch **hallucinated or malformed** codes. A malformed code becomes a
+`critical` safety finding and lowers the `terminology_correctness` trust
+dimension.
+
+```python
+session.record_coding("http://loinc.org", "2160-0", "Creatinine")
+session.record_codings_from(fhir_observation)   # or extract from a FHIR resource
+```
+
+Confirming a code is the *right, active* one for the claim needs the real
+code tables, which institutions supply through the `TerminologyResolver`
+interface (`resolve(system, code) -> CodeValidation`) — Metaxu ships the
+check logic, never the data. Every result carries the
+`terminology_version` it was checked against (`format-check`, or e.g.
+`LOINC-2.78`), because terminologies change: validating a historical
+artifact against "whatever's current" would make a since-retired code look
+like a hallucination and make re-validation non-deterministic. The full
+strategy — bundling constraints, why SNOMED CT is never redistributed, and
+the versioning discipline — is recorded in
+[ADR 0001](docs/adr/0001-terminology-validation.md).
+
 ## Roadmap
 
 - [x] MCP proxy that instruments any MCP server transparently
@@ -304,7 +332,8 @@ before and after a deploy with `--fail-on-drift` as the release gate.
 - [ ] CDS Hooks / SMART on FHIR adapter (the healthcare-native decision surface)
 - [ ] LLM API gateway adapter (closes the answer/claims blind spot without SDK adoption)
 - [ ] Detached-signature envelope for artifact authentication
-- [ ] Terminology validation checks (SNOMED / LOINC / RxNorm / UCUM)
+- [x] Terminology validation — format/checksum (SNOMED / LOINC / RxNorm / UCUM / ICD) + pluggable resolver interface ([ADR 0001](docs/adr/0001-terminology-validation.md))
+- [ ] Terminology data backends: bundled LOINC/RxNorm, SNOMED local-build (see ADR 0001)
 - [ ] Temporal-reasoning checks (newest labs, discontinued medications)
 - [x] Governance reporting and dashboard over artifact collections
 - [x] Drift detection between artifact cohorts (environment, behavior, answers, sources)

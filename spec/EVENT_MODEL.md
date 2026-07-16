@@ -1,6 +1,6 @@
 # Event Model
 
-**Version:** 0.2.0 (draft)
+**Version:** 0.3.0 (draft)
 
 Everything Metaxu asserts about an interaction derives from an ordered
 stream of **events**. The model is deliberately minimal so that any
@@ -43,6 +43,7 @@ in a multi-agent workflow — can participate by appending JSON objects.
 | `retrieval` | A resource is fetched from a source of record | `provenance_id`, `source_system` |
 | `claim` | The AI asserts an intermediate fact | `text` |
 | `evidence_link` | A claim is connected to retrieved resources | `claim_id`, `provenance_ids`, `relation` |
+| `coding` | A clinical terminology code is referenced | `system`, `code`, `display` |
 | `policy_check` | The policy engine evaluates a policy (at finalize) | `policy`, `triggered`, `passed`, `missing` |
 | `safety_check` | The safety engine reports a finding (at finalize) | `check`, `severity`, `message` |
 | `missing_data` | Required information could not be obtained | `item`, `reason` |

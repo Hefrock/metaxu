@@ -1,6 +1,6 @@
 # Assurance Artifact Specification
 
-**Version:** 0.2.0 (draft)
+**Version:** 0.3.0 (draft)
 **Schema:** [`src/metaxu/spec/assurance-artifact.schema.json`](../src/metaxu/spec/assurance-artifact.schema.json)
 
 ## Purpose
@@ -35,6 +35,7 @@ need to know how the underlying AI system works.
 | `provenance` | yes | One record per retrieved resource: source system, id, version, retrieval time, content hash, cache state. |
 | `policy_checks` | yes | Result of each declarative policy: triggered, passed, satisfied/missing requirements. |
 | `safety_checks` | yes | Findings from structural safety checks, each with a severity (`info`/`warning`/`critical`). |
+| `terminology` | no | Validation results for clinical codes (SNOMED CT, LOINC, RxNorm, UCUM, ICD). Each carries `valid`, `status`, and the `terminology_version` it was checked against. See [terminology validation](#terminology-validation). |
 | `missing_data` | no | Required information that could not be obtained, with reasons. |
 | `trust_scores` | yes | Named trust dimensions, each `{score, rationale, inputs}`. **Never aggregated into a single number.** |
 | `reproducibility` | no | Model, prompt, tool, and runtime versions needed to attempt replay. |
@@ -112,6 +113,34 @@ by one:
    `metadata["dev.metaxu/merge_conflicts"]` with its source observer.
 4. Merging requires identical `interaction_id`s and the same major
    schema version; anything else is an error, not a best effort.
+
+## Terminology validation
+
+Coded clinical values (a LOINC code for a lab, a SNOMED CT concept, an
+RxNorm drug, a UCUM unit) are recorded as `coding` events and validated at
+finalize. Each `terminology` entry carries:
+
+- `system` (canonical: `LOINC`, `SNOMED-CT`, `RxNorm`, `UCUM`, `ICD-10-CM`),
+  `code`, and the `display` the AI used;
+- `valid` and `status` — `well-formed` (passed format/checksum but existence
+  unverified), `malformed` (failed — likely hallucinated), `active`/`inactive`
+  (a data-backed resolver confirmed the code exists / is retired), `unknown`,
+  or `unvalidated`;
+- **`terminology_version`** — the release the check consulted (e.g.
+  `LOINC-2.78`), or `format-check` for the built-in algorithmic validator.
+
+`terminology_version` is required because terminologies change: a code valid
+when an artifact was produced may be retired later, so validating against
+"whatever is current" would make a historical artifact look wrong and would
+make re-validation non-deterministic — violating the reproducibility
+guarantee. Recording the version consulted keeps terminology checks
+auditable and replayable, exactly as `provenance.resource_version` does for
+data. The design rationale (format-check vs. data-backed resolvers, and the
+licensing constraints that keep SNOMED CT out of any bundled distribution)
+is recorded in `docs/adr/0001-terminology-validation.md`.
+
+Malformed codes produce a `critical` safety finding and lower the
+`terminology_correctness` trust dimension (present only when codes were used).
 
 ## Versioning
 

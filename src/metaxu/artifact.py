@@ -18,7 +18,7 @@ from typing import Any
 from .events import Event, utcnow
 from .provenance import ProvenanceRecord, content_hash
 
-ARTIFACT_SCHEMA_VERSION = "0.2.0"
+ARTIFACT_SCHEMA_VERSION = "0.3.0"
 
 
 @dataclass
@@ -41,6 +41,7 @@ class AssuranceArtifact:
     provenance: list[ProvenanceRecord] = field(default_factory=list)
     policy_checks: list[dict[str, Any]] = field(default_factory=list)
     safety_checks: list[dict[str, Any]] = field(default_factory=list)
+    terminology: list[dict[str, Any]] = field(default_factory=list)
     missing_data: list[dict[str, Any]] = field(default_factory=list)
     trust_scores: dict[str, dict[str, Any]] = field(default_factory=dict)
     reproducibility: dict[str, Any] = field(default_factory=dict)
@@ -67,6 +68,7 @@ class AssuranceArtifact:
             "provenance": [p.to_dict() for p in self.provenance],
             "policy_checks": self.policy_checks,
             "safety_checks": self.safety_checks,
+            "terminology": self.terminology,
             "missing_data": self.missing_data,
             "trust_scores": self.trust_scores,
             "reproducibility": self.reproducibility,
@@ -98,6 +100,7 @@ class AssuranceArtifact:
             provenance=[ProvenanceRecord.from_dict(p) for p in data.get("provenance", [])],
             policy_checks=data.get("policy_checks", []),
             safety_checks=data.get("safety_checks", []),
+            terminology=data.get("terminology", []),
             missing_data=data.get("missing_data", []),
             trust_scores=data.get("trust_scores", {}),
             reproducibility=data.get("reproducibility", {}),

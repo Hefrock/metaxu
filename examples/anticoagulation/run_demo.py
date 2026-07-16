@@ -62,6 +62,8 @@ def _fetch(resource_type: str, resource_id: str, tags: list[str]) -> dict:
             content=resource,
         )
         session.record_retrieval(record, tags=tags + ["patient_record_access"])
+        # Validate the LOINC/RxNorm/UCUM codes carried by the resource.
+        session.record_codings_from(resource, tags=tags)
         save_snapshot(SNAPSHOT_DIR, record, resource)
         resource = dict(resource, _provenance_id=record.id)
     return resource
@@ -99,6 +101,7 @@ def get_allergies(patient_id: str) -> list[dict]:
             session.record_retrieval(
                 record, tags=["allergy_check", "patient_record_access"]
             )
+            session.record_codings_from(resource, tags=["allergy_check"])
             save_snapshot(SNAPSHOT_DIR, record, resource)
             resource = dict(resource, _provenance_id=record.id)
         out.append(resource)

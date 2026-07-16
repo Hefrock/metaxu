@@ -108,9 +108,31 @@ def merge_artifacts(
     safety_engine = safety_engine or SafetyEngine()
     trust_engine = trust_engine or TrustEngine()
 
+    # Re-validate terminology over the combined codings (format-check is
+    # data-free; a merge cannot know which resolver a partial used).
+    from .terminology import Coding, TerminologyValidator
+
+    codings = [
+        Coding(
+            system=e.payload["system"],
+            code=e.payload["code"],
+            display=e.payload.get("display"),
+        )
+        for e in observational
+        if e.type == EventType.CODING
+    ]
+    terminology_results = [
+        v.to_dict() for v in TerminologyValidator().validate(codings)
+    ]
+
     policy_results = [r.to_dict() for r in policy_engine.evaluate(answer, observational)]
     safety_findings = safety_engine.evaluate(
-        SafetyContext(answer=answer, events=observational, provenance=provenance)
+        SafetyContext(
+            answer=answer,
+            events=observational,
+            provenance=provenance,
+            terminology=terminology_results,
+        )
     )
     safety_dicts = [f.to_dict() for f in safety_findings]
     trust_scores = trust_engine.evaluate(
@@ -119,6 +141,7 @@ def merge_artifacts(
         policy_checks=policy_results,
         safety_findings=safety_findings,
         missing_data=missing_data,
+        terminology=terminology_results,
     )
 
     # Append fresh check events so the "projections derive from events"
@@ -143,6 +166,7 @@ def merge_artifacts(
         provenance=provenance,
         policy_checks=policy_results,
         safety_checks=safety_dicts,
+        terminology=terminology_results,
         missing_data=missing_data,
         trust_scores=trust_scores,
         reproducibility=reproducibility,

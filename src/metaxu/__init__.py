@@ -29,16 +29,27 @@ from .replay import (
 )
 from .safety import SafetyContext, SafetyEngine, SafetyFinding
 from .session import AssuranceSession, current_session
+from .terminology import (
+    CodeValidation,
+    Coding,
+    FormatResolver,
+    TerminologyValidator,
+    extract_codings,
+    normalize_system,
+)
 from .trust import TrustDimension, TrustEngine
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "ARTIFACT_SCHEMA_VERSION",
     "AssuranceArtifact",
     "AssuranceSession",
+    "CodeValidation",
+    "Coding",
     "Event",
     "EventType",
+    "FormatResolver",
     "MCPProxy",
     "Policy",
     "PolicyEngine",
@@ -48,6 +59,7 @@ __all__ = [
     "SafetyContext",
     "SafetyEngine",
     "SafetyFinding",
+    "TerminologyValidator",
     "TrustDimension",
     "TrustEngine",
     "VerificationReport",
@@ -56,9 +68,11 @@ __all__ = [
     "compare_cohorts",
     "content_hash",
     "diff_artifacts",
+    "extract_codings",
     "current_session",
     "load_artifacts",
     "merge_artifacts",
+    "normalize_system",
     "replay_with_runner",
     "save_snapshot",
     "snapshot_resolver",
