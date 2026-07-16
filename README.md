@@ -37,9 +37,13 @@ consumer — a clinician, a dashboard, a CI pipeline, an auditor — answer:
 
 ## Status
 
-`0.1.0` — early draft of the spec and a working reference SDK. APIs and
-the artifact schema will change. Feedback and design discussion are the
-point of publishing this early.
+`0.3.0` — a working reference SDK with every core component from the
+founding vision implemented (provenance, policy, safety, trust,
+terminology, evidence graph, correlation/merge, governance, drift,
+replay). APIs and the artifact schema may still change before `1.0`.
+Feedback and design discussion are the point of publishing this early.
+See [CHANGELOG.md](CHANGELOG.md) for the release history and
+[RELEASING.md](RELEASING.md) for how releases are cut.
 
 ## What's here
 
@@ -51,12 +55,14 @@ point of publishing this early.
 | [`src/metaxu/`](src/metaxu/) | Reference Python SDK — stdlib-only core, zero required dependencies |
 | [`examples/anticoagulation/`](examples/anticoagulation/) | End-to-end demo: two agents (diligent vs. careless) over synthetic FHIR data |
 | [`tests/`](tests/) | Test suite, including the demo as a benchmark scenario |
+| [`docs/adr/`](docs/adr/) | Architecture decision records (terminology strategy, adapter roadmap) |
 
 ## Quick start
 
 ```bash
-pip install -e ".[dev]"
-pytest
+pip install metaxu           # stdlib-only core, zero required dependencies
+# or, from a clone, for development:
+pip install -e ".[dev]" && pytest
 
 # Run the demo: same question, two agents, two very different artifacts
 python examples/anticoagulation/run_demo.py
@@ -365,9 +371,10 @@ the versioning discipline — is recorded in
 
 - [x] MCP proxy that instruments any MCP server transparently
 - [x] Multi-observer correlation and artifact merging
-- [ ] OpenTelemetry adapter (events ↔ spans; map to GenAI semantic conventions)
-- [ ] CDS Hooks / SMART on FHIR adapter (the healthcare-native decision surface)
-- [ ] LLM API gateway adapter (closes the answer/claims blind spot without SDK adoption)
+- Adapter roadmap (priority order in [ADR 0002](docs/adr/0002-adapter-strategy.md)):
+  - [ ] OpenTelemetry adapter (events ↔ spans; map to GenAI semantic conventions) — **next**
+  - [ ] CDS Hooks / SMART on FHIR adapter (the healthcare-native decision surface)
+  - [ ] LLM API gateway adapter (closes the answer/claims blind spot without SDK adoption)
 - [ ] Detached-signature envelope for artifact authentication
 - [x] Terminology validation — format/checksum (SNOMED / LOINC / RxNorm / UCUM / ICD) + pluggable resolver interface ([ADR 0001](docs/adr/0001-terminology-validation.md))
 - [x] Evidence graph as a traversable structure (multi-hop chains, dependents tracing, Mermaid/DOT export)
