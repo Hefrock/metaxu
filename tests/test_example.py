@@ -46,7 +46,7 @@ def test_diligent_agent_passes_all_policies(demo):
     assert artifact.trust_scores["policy_compliance"]["score"] == 1.0
     assert artifact.trust_scores["provenance_coverage"]["score"] == 1.0
     assert artifact.trust_scores["safety"]["score"] == 1.0
-    assert len(artifact.provenance) == 4  # patient, platelets, creatinine, allergy
+    assert len(artifact.provenance) == 5  # patient, platelets, creatinine, allergy, guideline
     assert artifact.verify_integrity()
 
 
@@ -74,4 +74,4 @@ def test_replay_verifies_diligent_artifact(demo, tmp_path):
     artifact = run_agent(demo, demo.diligent_agent)
     report = verify(artifact, snapshot_resolver(demo.SNAPSHOT_DIR))
     assert report.ok
-    assert report.provenance_matched == report.provenance_checked == 4
+    assert report.provenance_matched == report.provenance_checked == 5

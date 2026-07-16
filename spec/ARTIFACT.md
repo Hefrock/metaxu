@@ -53,17 +53,39 @@ projections from it.
 
 ### The evidence graph
 
-The artifact encodes a graph rather than a text log:
+The artifact encodes a traversable, multi-hop reasoning graph rather
+than a text log:
 
 ```
-question ──> claim ──evidence_link──> provenance record ──> source system
-                └──── (claims without an evidence_link are, by definition,
-                       unsupported — the safety engine flags them)
+question ──answered_by──> answer
+answer   ──based_on────>  claim            (explicit, or implicit to all claims)
+claim    ──supports────>  provenance record (resource)
+claim    ──supports────>  claim             (intermediate reasoning steps)
+resource ──retrieved_by─> tool call         (via retrieval parent_id)
+resource ──has_coding──>  coding            (with its terminology validation)
 ```
 
-Nodes are `claim` events and `provenance` records; edges are
-`evidence_link` events (`payload.claim_id` → `payload.provenance_ids`,
-with a `relation` such as `supports` or `contradicts`).
+The edges are carried by event payloads, so the graph is a **derived
+view** — reconstructable by any consumer from `events` + `provenance`
+alone (the reference implementation is `metaxu.graph.EvidenceGraph`;
+`metaxu graph` renders it as a tree, JSON, Mermaid, or DOT):
+
+- `evidence_link` events: `payload.claim_id` → `payload.provenance_ids`
+  (resources) and `payload.claim_ids` (supporting claims), with a
+  `relation` such as `supports` or `contradicts`.
+- `answer` events: `payload.based_on_claim_ids` names the claims the
+  answer explicitly rests on. When absent, consumers MAY infer edges
+  from the answer to every claim but MUST mark them implicit —
+  recorded reasoning is never conflated with inferred reasoning.
+- `coding` events: `payload.provenance_id` links a code to the resource
+  that carried it.
+- `retrieval` events: `parent_id` links the retrieval to the tool call
+  that performed it.
+
+Claims without support edges are, by definition, unsupported — the
+safety engine flags them. Resources retrieved but never cited by any
+claim are reachable in the graph as orphans: data the AI looked at but
+never used.
 
 ### Trust dimensions
 

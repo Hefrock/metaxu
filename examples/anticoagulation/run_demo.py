@@ -62,8 +62,9 @@ def _fetch(resource_type: str, resource_id: str, tags: list[str]) -> dict:
             content=resource,
         )
         session.record_retrieval(record, tags=tags + ["patient_record_access"])
-        # Validate the LOINC/RxNorm/UCUM codes carried by the resource.
-        session.record_codings_from(resource, tags=tags)
+        # Validate the LOINC/RxNorm/UCUM codes carried by the resource,
+        # linked to their source so the evidence graph gets the edge.
+        session.record_codings_from(resource, tags=tags, provenance=record)
         save_snapshot(SNAPSHOT_DIR, record, resource)
         resource = dict(resource, _provenance_id=record.id)
     return resource
@@ -84,6 +85,11 @@ def get_creatinine(patient_id: str) -> dict:
     return _fetch("Observation", "obs-crea-9002", tags=["creatinine", "lab"])
 
 
+@assured_tool(tags=["guideline_lookup"], version="demo-fhir-tools/1.0.0")
+def get_guideline(topic: str) -> dict:
+    return _fetch("PlanDefinition", "guideline-af-anticoag", tags=["guideline"])
+
+
 @assured_tool(tags=["allergy_check"], version="demo-fhir-tools/1.0.0")
 def get_allergies(patient_id: str) -> list[dict]:
     results = store.search("AllergyIntolerance", patient_id)
@@ -101,7 +107,9 @@ def get_allergies(patient_id: str) -> list[dict]:
             session.record_retrieval(
                 record, tags=["allergy_check", "patient_record_access"]
             )
-            session.record_codings_from(resource, tags=["allergy_check"])
+            session.record_codings_from(
+                resource, tags=["allergy_check"], provenance=record
+            )
             save_snapshot(SNAPSHOT_DIR, record, resource)
             resource = dict(resource, _provenance_id=record.id)
         out.append(resource)
@@ -114,13 +122,19 @@ def _prov_of(session: AssuranceSession, resource: dict) -> ProvenanceRecord:
 
 
 def diligent_agent(session: AssuranceSession) -> None:
-    """Performs every check the anticoagulation policy requires."""
+    """Performs every check the policy requires, and records the reasoning
+    as a multi-hop evidence chain:
+
+        question -> labs/allergies (FHIR resources, coded) -> eligibility claim
+                 -> guideline (PlanDefinition)              -> recommendation
+    """
     session.set_model("scripted-demo-agent", prompt_version="demo/1")
 
     patient = get_patient("pat-001")
     platelets = get_platelet_count("pat-001")
     creatinine = get_creatinine("pat-001")
     allergies = get_allergies("pat-001")
+    guideline = get_guideline("atrial fibrillation")
 
     claim_plt = session.record_claim(
         f"Platelet count is {platelets['valueQuantity']['value']} 10*3/uL (adequate)."
@@ -144,10 +158,24 @@ def diligent_agent(session: AssuranceSession) -> None:
         tags=["pregnancy_status"],
     )
 
+    # Intermediate reasoning: eligibility rests on the three data claims.
+    claim_eligible = session.record_claim(
+        "No contraindication to anticoagulation identified."
+    )
+    session.link_evidence(claim_eligible, [claim_plt, claim_crea, claim_alg])
+
+    # The recommendation rests on eligibility plus the guideline.
+    claim_guideline = session.record_claim(
+        "Guideline recommends oral anticoagulation for nonvalvular AF "
+        "with elevated stroke risk when no contraindication exists."
+    )
+    session.link_evidence(claim_guideline, [_prov_of(session, guideline)])
+
     session.set_answer(
         "Anticoagulation (e.g. apixaban) appears appropriate: platelets and renal "
         "function are adequate and there is no relevant allergy. Confirm with "
-        "pharmacy and reassess bleeding risk before prescribing."
+        "pharmacy and reassess bleeding risk before prescribing.",
+        based_on=[claim_eligible, claim_guideline],
     )
 
 

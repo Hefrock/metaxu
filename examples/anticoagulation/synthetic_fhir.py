@@ -68,6 +68,32 @@ SYNTHETIC_BUNDLE: dict[str, list[dict[str, Any]]] = {
             },
         },
     ],
+    "PlanDefinition": [
+        {
+            "resourceType": "PlanDefinition",
+            "id": "guideline-af-anticoag",
+            "meta": {"versionId": "5"},
+            "status": "active",
+            "title": "Anticoagulation for nonvalvular atrial fibrillation",
+            "description": (
+                "For patients with nonvalvular atrial fibrillation and elevated "
+                "stroke risk, oral anticoagulation is recommended when platelet "
+                "count and renal function are adequate and no contraindicating "
+                "allergy exists."
+            ),
+            "topic": [
+                {
+                    "coding": [
+                        {
+                            "system": "http://snomed.info/sct",
+                            "code": "49436004",
+                            "display": "Atrial fibrillation",
+                        }
+                    ]
+                }
+            ],
+        }
+    ],
     "AllergyIntolerance": [
         {
             "resourceType": "AllergyIntolerance",
