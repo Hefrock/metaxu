@@ -104,6 +104,18 @@ jobs:
           grep -q "No contraindication to anticoagulation identified" graph.txt
           metaxu graph examples/anticoagulation/out/diligent-artifact.json --format mermaid \
             | head -1 | grep -q "flowchart TD"
+      - name: CDS Hooks demo flags the careless invocation
+        run: |
+          python examples/cdshooks/run_demo.py > cds.txt
+          grep -q "Assurance checks did not pass" cds.txt
+          grep -q "malformed_codes=1" cds.txt
+          grep -q "failed_policies=\['before_anticoagulation'\]" cds.txt
+          metaxu report examples/cdshooks/out --json | python -c "
+          import json, sys
+          report = json.load(sys.stdin)
+          assert report['artifact_count'] == 2, report['artifact_count']
+          assert report['terminology']['malformed'] == 1, report['terminology']
+          "
       - name: OpenTelemetry export emits spans
         run: |
           # dev extra includes opentelemetry; careless artifact -> ERROR root span.

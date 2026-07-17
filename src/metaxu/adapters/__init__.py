@@ -9,8 +9,11 @@ into assurance events:
 - :mod:`metaxu.adapters.otel` — OpenTelemetry exporter (assurance traces
   in existing observability tooling). Optional: ``pip install metaxu[otel]``;
   imported lazily so the core stays dependency-free.
+- :mod:`metaxu.adapters.cdshooks` — assurance for CDS Hooks services:
+  prefetch becomes provenance, draft-order codes are validated, cards
+  become the answer, responses carry the artifact id (stdlib-only).
 
-Planned: OpenTelemetry importer, CDS Hooks, LLM API gateway. No adapter is
+Planned: OpenTelemetry importer, LLM API gateway. No adapter is
 privileged: full assurance comes from composing several observers into
 one artifact via correlation IDs and `metaxu merge`. Priority order in
 ``docs/adr/0002-adapter-strategy.md``.
@@ -19,6 +22,7 @@ one artifact via correlation IDs and `metaxu merge`. Priority order in
 # Only the stdlib-only MCP proxy is imported eagerly; metaxu.adapters.otel
 # pulls in the optional opentelemetry dependency and must be imported
 # directly by callers that installed the extra.
+from .cdshooks import assured_cds_service, begin_hook, finish_hook
 from .mcp import MCPProxy, run_proxy
 
-__all__ = ["MCPProxy", "run_proxy"]
+__all__ = ["MCPProxy", "assured_cds_service", "begin_hook", "finish_hook", "run_proxy"]

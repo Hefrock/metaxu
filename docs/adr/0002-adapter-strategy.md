@@ -47,7 +47,14 @@ The founding vision names OpenTelemetry as the direct analogy for what
 Metaxu is; shipping the bridge makes the analogy literal. Start with the
 exporter (smaller, immediately useful), then the importer.
 
-### 2. CDS Hooks / SMART on FHIR (highest clinical credibility)
+### 2. CDS Hooks / SMART on FHIR (highest clinical credibility) — **shipped (service-side)**
+
+*Status update:* the service-side wrapper (`metaxu.adapters.cdshooks`)
+shipped after the OTel exporter — begin/finish hook lifecycle, prefetch →
+provenance, draft-order code validation, response extension + optional
+assurance card. The transparent HTTP proxy variant (for evaluating
+third-party CDS services you don't control) remains future work, as does
+the SMART-on-FHIR app-launch side.
 
 The healthcare-native integration surface — what a CMIO recognizes and what
 Epic/Cerner actually support. It sees the decision *at the point it enters
