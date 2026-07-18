@@ -56,6 +56,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the release history and
 | [`examples/anticoagulation/`](examples/anticoagulation/) | End-to-end demo: two agents (diligent vs. careless) over synthetic FHIR data |
 | [`tests/`](tests/) | Test suite, including the demo as a benchmark scenario |
 | [`docs/adr/`](docs/adr/) | Architecture decision records (terminology strategy, adapter roadmap) |
+| [`docs/USE_CASES.md`](docs/USE_CASES.md) | Five hands-on use cases, each runnable from a fresh clone |
 
 ## Quick start
 
@@ -180,6 +181,35 @@ destination is authorized for PHI.
 The exporter is the first of the adapter roadmap in
 [ADR 0002](docs/adr/0002-adapter-strategy.md); the core stays stdlib-only,
 so OpenTelemetry is an optional extra imported lazily.
+
+## CDS Hooks: assurance at the EHR boundary
+
+[CDS Hooks](https://cds-hooks.hl7.org/) is how an EHR calls a
+decision-support service at workflow moments (order-sign, patient-view)
+and renders the returned cards. The adapter wraps one hook invocation in
+an assurance session — stdlib-only, framework-agnostic (plain dicts, so
+it drops into Flask/FastAPI/Functions):
+
+```python
+from metaxu.adapters.cdshooks import assured_cds_service
+
+@assured_cds_service(policy_engine=engine, tag_map={"platelets": ["platelet_count"]},
+                     artifact_dir="artifacts/", add_assurance_card=True)
+def my_service(request, session):
+    ...                       # your logic; record claims/evidence as usual
+    return [{"summary": "No contraindication found", "indicator": "info"}]
+```
+
+`prefetch` resources become hashed provenance with their codings
+validated; draft orders in `context` get their codes checked (a
+hallucinated RxNorm code on a proposed order is exactly what terminology
+validation exists to catch); `hookInstance` becomes the correlation
+`interaction_id`; the cards become the recorded answer. The response
+carries a `dev.metaxu` extension (artifact id + assurance summary), and
+with `add_assurance_card=True` a visible warning card is appended when
+checks fail — so the assurance verdict reaches the clinician in the EHR,
+not just the audit log. The request's `fhirAuthorization` bearer token is
+never recorded. See `examples/cdshooks/`.
 
 ## Composing observers: correlation and merge
 
@@ -406,8 +436,9 @@ the versioning discipline — is recorded in
 - [x] Multi-observer correlation and artifact merging
 - Adapter roadmap (priority order in [ADR 0002](docs/adr/0002-adapter-strategy.md)):
   - [x] OpenTelemetry **exporter** (artifact → spans, `gen_ai.*` conventions, PHI-safe by default)
+  - [x] CDS Hooks adapter (assured decision-support services; prefetch → provenance, cards → answer)
   - [ ] OpenTelemetry importer (spans → assurance events)
-  - [ ] CDS Hooks / SMART on FHIR adapter (the healthcare-native decision surface)
+  - [ ] CDS Hooks transparent proxy variant (evaluate third-party services you don't control)
   - [ ] LLM API gateway adapter (closes the answer/claims blind spot without SDK adoption)
 - [ ] Detached-signature envelope for artifact authentication
 - [x] Terminology validation — format/checksum (SNOMED / LOINC / RxNorm / UCUM / ICD) + pluggable resolver interface ([ADR 0001](docs/adr/0001-terminology-validation.md))

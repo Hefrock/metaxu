@@ -12,6 +12,18 @@ versions artifacts were produced under).
 ## [Unreleased]
 
 ### Added
+- **CDS Hooks adapter** (`metaxu.adapters.cdshooks`): assurance for
+  decision-support services at the EHR boundary. `begin_hook` turns a hook
+  request into a session (prefetch → hashed provenance with validated
+  codings; draft-order codes checked; `hookInstance` → correlation id);
+  `finish_hook` records the cards as the answer and annotates the response
+  with a `dev.metaxu` extension (artifact id + assurance summary), plus an
+  optional visible assurance card when checks fail. The
+  `assured_cds_service` decorator wraps a `handler(request, session) ->
+  cards` function and can persist every artifact. `fhirAuthorization`
+  bearer tokens are never recorded. Stdlib-only; see `examples/cdshooks/`.
+- `docs/USE_CASES.md`: five hands-on use cases, each runnable from a fresh
+  clone with exact commands and what-to-look-for notes.
 - **OpenTelemetry exporter** (`metaxu.adapters.otel`, `metaxu otel`): turns
   an artifact into an OpenTelemetry span tree — one root span per
   interaction (model, trust dimensions, policy/safety/terminology
