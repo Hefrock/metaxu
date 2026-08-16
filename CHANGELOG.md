@@ -5,39 +5,18 @@ All notable changes to Metaxu are documented here. The format follows
 versions the [Assurance Artifact schema](spec/ARTIFACT.md) and the Python
 package together under [semantic versioning](https://semver.org/).
 
-`0.3.0` is the first release published to PyPI. The `0.1.0` and `0.2.0`
+`0.3.0` is intended as the first release published to PyPI (not yet
+tagged — see [RELEASING.md](RELEASING.md)). The `0.1.0` and `0.2.0`
 entries record the pre-publication development history (the schema
 versions artifacts were produced under).
 
-## [Unreleased]
+## [0.3.0] — 2026-08-16
 
-### Added
-- **CDS Hooks adapter** (`metaxu.adapters.cdshooks`): assurance for
-  decision-support services at the EHR boundary. `begin_hook` turns a hook
-  request into a session (prefetch → hashed provenance with validated
-  codings; draft-order codes checked; `hookInstance` → correlation id);
-  `finish_hook` records the cards as the answer and annotates the response
-  with a `dev.metaxu` extension (artifact id + assurance summary), plus an
-  optional visible assurance card when checks fail. The
-  `assured_cds_service` decorator wraps a `handler(request, session) ->
-  cards` function and can persist every artifact. `fhirAuthorization`
-  bearer tokens are never recorded. Stdlib-only; see `examples/cdshooks/`.
-- `docs/USE_CASES.md`: five hands-on use cases, each runnable from a fresh
-  clone with exact commands and what-to-look-for notes.
-- **OpenTelemetry exporter** (`metaxu.adapters.otel`, `metaxu otel`): turns
-  an artifact into an OpenTelemetry span tree — one root span per
-  interaction (model, trust dimensions, policy/safety/terminology
-  roll-ups), child spans for tool calls and retrievals, and span events for
-  claims, policy checks, and findings. Root span status is ERROR on a
-  critical safety finding, failed policy, or integrity mismatch. Uses
-  `gen_ai.*` semantic conventions where they fit; PHI text is omitted unless
-  `capture_content=True`. Optional dependency: `pip install metaxu[otel]`;
-  imported lazily so the core stays dependency-free. First of the adapter
-  roadmap in [ADR 0002](docs/adr/0002-adapter-strategy.md).
-
-## [0.3.0] — 2026-07-16
-
-First public release candidate.
+First release candidate. Validated end-to-end against
+[`docs/USE_CASES.md`](docs/USE_CASES.md) (all five use cases, including a
+real run on NixOS / Python 3.14.6 outside the CI test matrix). Pending
+the PyPI trusted-publisher setup and tag push — see
+[RELEASING.md](RELEASING.md).
 
 ### Added
 - **Terminology validation** ([ADR 0001](docs/adr/0001-terminology-validation.md)):
@@ -52,6 +31,28 @@ First public release candidate.
   claim-on-claim reasoning) → resources → codings, with `dependents()`
   impact analysis and text/JSON/Mermaid/DOT rendering. A derived view over
   the event stream; no schema change.
+- **OpenTelemetry exporter** (`metaxu.adapters.otel`, `metaxu otel`): turns
+  an artifact into an OpenTelemetry span tree — one root span per
+  interaction (model, trust dimensions, policy/safety/terminology
+  roll-ups), child spans for tool calls and retrievals, and span events for
+  claims, policy checks, and findings. Root span status is ERROR on a
+  critical safety finding, failed policy, or integrity mismatch. Uses
+  `gen_ai.*` semantic conventions where they fit; PHI text is omitted unless
+  `capture_content=True`. Optional dependency: `pip install metaxu[otel]`;
+  imported lazily so the core stays dependency-free. First of the adapter
+  roadmap in [ADR 0002](docs/adr/0002-adapter-strategy.md).
+- **CDS Hooks adapter** (`metaxu.adapters.cdshooks`): assurance for
+  decision-support services at the EHR boundary. `begin_hook` turns a hook
+  request into a session (prefetch → hashed provenance with validated
+  codings; draft-order codes checked; `hookInstance` → correlation id);
+  `finish_hook` records the cards as the answer and annotates the response
+  with a `dev.metaxu` extension (artifact id + assurance summary), plus an
+  optional visible assurance card when checks fail. The
+  `assured_cds_service` decorator wraps a `handler(request, session) ->
+  cards` function and can persist every artifact. `fhirAuthorization`
+  bearer tokens are never recorded. Stdlib-only; see `examples/cdshooks/`.
+- `docs/USE_CASES.md`: five hands-on use cases, each runnable from a fresh
+  clone with exact commands and what-to-look-for notes.
 - New `coding` event type; `terminology` artifact field.
 - `py.typed` marker — the package now ships its inline type information.
 
