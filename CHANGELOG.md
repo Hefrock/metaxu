@@ -5,10 +5,25 @@ All notable changes to Metaxu are documented here. The format follows
 versions the [Assurance Artifact schema](spec/ARTIFACT.md) and the Python
 package together under [semantic versioning](https://semver.org/).
 
-`0.3.0` is intended as the first release published to PyPI (not yet
-tagged — see [RELEASING.md](RELEASING.md)). The `0.1.0` and `0.2.0`
-entries record the pre-publication development history (the schema
-versions artifacts were produced under).
+`0.3.0` is the first release published to PyPI — see
+[RELEASING.md](RELEASING.md). The `0.1.0` and `0.2.0` entries record the
+pre-publication development history (the schema versions artifacts were
+produced under).
+
+## [Unreleased]
+
+### Added
+- **LLM API gateway adapter** (`metaxu.adapters.llm_gateway`, Anthropic
+  Messages API): assurance from the raw model call — the prompt, the
+  answer, and tool-call intents, closing the blind spot the MCP proxy
+  structurally has. `record_exchange(request, response)` builds one
+  artifact from a `client.messages.create()` call; because the Messages
+  API is stateless, walking `request["messages"]` recovers the whole
+  tool-call trace (intent *and*, when echoed back, result) for the
+  conversation so far, not just the latest turn. Stdlib-only — no
+  dependency on the `anthropic` package. `examples/llm_gateway/`
+  demonstrates the composition thesis: paired with an MCP-proxy partial
+  and merged, per [ADR 0002](docs/adr/0002-adapter-strategy.md).
 
 ## [0.3.0] — 2026-08-16
 

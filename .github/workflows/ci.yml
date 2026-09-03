@@ -116,6 +116,13 @@ jobs:
           assert report['artifact_count'] == 2, report['artifact_count']
           assert report['terminology']['malformed'] == 1, report['terminology']
           "
+      - name: LLM gateway composition demo (gateway + MCP proxy)
+        run: |
+          python examples/llm_gateway/run_demo.py > gateway.txt
+          grep -q "gateway-partial: before_anticoagulation FAIL" gateway.txt
+          grep -q "proxy-partial: before_anticoagulation not triggered" gateway.txt
+          grep -q "merged: before_anticoagulation PASS" gateway.txt
+          metaxu validate examples/llm_gateway/out/merged.json
       - name: OpenTelemetry export emits spans
         run: |
           # dev extra includes opentelemetry; careless artifact -> ERROR root span.

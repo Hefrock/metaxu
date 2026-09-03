@@ -64,7 +64,21 @@ than OTel (a real service implementing the hook request/prefetch/card
 exchange, not a shim), and it needs a concrete integration target to
 validate against — so it follows OTel rather than leading.
 
-### 3. LLM API gateway (best composition proof)
+### 3. LLM API gateway (best composition proof) — **shipped (Anthropic)**
+
+*Status update:* `metaxu.adapters.llm_gateway` shipped, scoped to the
+Anthropic Messages API as decided below. Because that API is stateless,
+the adapter turned out to see more than this ADR originally scoped: since
+`request["messages"]` carries the *entire* prior turn history, walking it
+recovers not just tool-call intent but the result content too, whenever
+the caller echoed a `tool_result` block back on a later turn — the
+"blind to what tools returned" line below undersells it for the
+multi-turn case. It still carries no independent provenance for that
+result (no source-system identity, hash, or retrieval timestamp) —
+that's what composing in an MCP-proxy partial still adds, and
+`examples/llm_gateway/` demonstrates exactly that pairing, per the
+composition requirement below. A second provider (OpenAI, etc.) remains
+future work — see the scoping rationale unchanged below.
 
 A proxy in front of the model API that records the prompt, the answer, the
 model and version, and tool-call intents — closing exactly the blind spot
