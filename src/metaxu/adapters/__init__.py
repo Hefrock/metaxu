@@ -12,17 +12,29 @@ into assurance events:
 - :mod:`metaxu.adapters.cdshooks` — assurance for CDS Hooks services:
   prefetch becomes provenance, draft-order codes are validated, cards
   become the answer, responses carry the artifact id (stdlib-only).
+- :mod:`metaxu.adapters.llm_gateway` — assurance from a raw model API
+  call (Anthropic Messages API first): the prompt, the answer, and
+  tool-call intents — closing the blind spot the MCP proxy has
+  (stdlib-only, no dependency on the `anthropic` package).
 
-Planned: OpenTelemetry importer, LLM API gateway. No adapter is
-privileged: full assurance comes from composing several observers into
-one artifact via correlation IDs and `metaxu merge`. Priority order in
+Planned: OpenTelemetry importer. No adapter is privileged: full assurance
+comes from composing several observers into one artifact via correlation
+IDs and `metaxu merge`. Priority order in
 ``docs/adr/0002-adapter-strategy.md``.
 """
 
-# Only the stdlib-only MCP proxy is imported eagerly; metaxu.adapters.otel
+# Only the stdlib-only adapters are imported eagerly; metaxu.adapters.otel
 # pulls in the optional opentelemetry dependency and must be imported
 # directly by callers that installed the extra.
 from .cdshooks import assured_cds_service, begin_hook, finish_hook
+from .llm_gateway import record_exchange
 from .mcp import MCPProxy, run_proxy
 
-__all__ = ["MCPProxy", "assured_cds_service", "begin_hook", "finish_hook", "run_proxy"]
+__all__ = [
+    "MCPProxy",
+    "assured_cds_service",
+    "begin_hook",
+    "finish_hook",
+    "record_exchange",
+    "run_proxy",
+]
