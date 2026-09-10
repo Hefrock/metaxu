@@ -37,11 +37,14 @@ consumer — a clinician, a dashboard, a CI pipeline, an auditor — answer:
 
 ## Status
 
-[`0.3.0`](https://pypi.org/project/metaxu/) — published on PyPI — a
-working reference SDK with every core component from the founding vision
-implemented (provenance, policy, safety, trust, terminology, evidence
-graph, correlation/merge, governance, drift, replay), plus four adapters
-(MCP, OpenTelemetry, CDS Hooks, LLM API gateway). Validated end-to-end
+`2026.9.10`, pending its PyPI release — [`0.3.0`](https://pypi.org/project/metaxu/)
+is what's live there right now — a working reference SDK with every core
+component from the founding vision implemented (provenance, policy,
+safety, trust, terminology, evidence graph, correlation/merge,
+governance, drift, replay), plus four adapters (MCP, OpenTelemetry, CDS
+Hooks, LLM API gateway). Versioning moved from semver to a calendar date
+(`YYYY.M.D`) starting with this release — see
+[ADR 0003](docs/adr/0003-calendar-versioning.md). Validated end-to-end
 against [`docs/USE_CASES.md`](docs/USE_CASES.md). APIs and the artifact
 schema may still change before `1.0`. Feedback and design discussion are
 still very much the point at this stage. See [CHANGELOG.md](CHANGELOG.md)

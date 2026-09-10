@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "metaxu"
-version = "0.3.0"
+version = "2026.9.10"
 description = "An AI assurance and provenance layer for healthcare — model-agnostic, agent-agnostic, EHR-agnostic."
 readme = "README.md"
 requires-python = ">=3.10"

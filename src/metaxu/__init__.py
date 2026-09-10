@@ -10,7 +10,7 @@ evidence, policy compliance, safety findings, and multi-dimensional trust.
 Model-agnostic, agent-agnostic, EHR-agnostic.
 """
 
-from .artifact import ARTIFACT_SCHEMA_VERSION, AssuranceArtifact
+from .artifact import ARTIFACT_SCHEMA_VERSION, SCHEMA_COMPATIBILITY, AssuranceArtifact, schema_era
 from .drift import compare_cohorts
 from .events import Event, EventType
 from .governance import aggregate_artifacts, load_artifacts
@@ -40,10 +40,11 @@ from .terminology import (
 )
 from .trust import TrustDimension, TrustEngine
 
-__version__ = "0.3.0"
+__version__ = "2026.9.10"
 
 __all__ = [
     "ARTIFACT_SCHEMA_VERSION",
+    "SCHEMA_COMPATIBILITY",
     "AssuranceArtifact",
     "AssuranceSession",
     "CodeValidation",
@@ -77,6 +78,7 @@ __all__ = [
     "normalize_system",
     "replay_with_runner",
     "save_snapshot",
+    "schema_era",
     "snapshot_resolver",
     "verify",
     "__version__",

@@ -1,6 +1,6 @@
 # Assurance Artifact Specification
 
-**Version:** 0.3.0 (draft)
+**Version:** 2026.9.10 (draft)
 **Schema:** [`src/metaxu/spec/assurance-artifact.schema.json`](../src/metaxu/spec/assurance-artifact.schema.json)
 
 ## Purpose
@@ -166,11 +166,22 @@ Malformed codes produce a `critical` safety finding and lower the
 
 ## Versioning
 
-- The spec follows **semver**. Within a major version, fields are only
-  ever *added* (never removed or repurposed), so a `0.x`/`1.x` consumer
-  can read any artifact of the same major version.
-- Producers MUST set `schema_version`; consumers MUST reject artifacts
-  with a higher major version than they understand.
+- `schema_version` is **calendar-versioned** (`YYYY.M.D`, e.g. `2026.9.10`)
+  starting with the release that introduced this section; earlier
+  artifacts carry a semver value (`0.1.0`/`0.2.0`/`0.3.0`) from before the
+  switch. See [ADR 0003](../docs/adr/0003-calendar-versioning.md) for why.
+- Within a compatibility set, fields are only ever *added* (never removed
+  or repurposed) — the same rule as before, just no longer expressed as a
+  "major version" parsed out of the string, since a calendar date has no
+  such structure. Compatibility is instead an explicit, code-maintained
+  set of known-compatible version strings
+  (`metaxu.artifact.SCHEMA_COMPATIBILITY`): every version in one set
+  differs from every other only by additive change, spanning both the
+  semver and CalVer eras until a genuinely breaking change ever requires
+  starting a new set.
+- Producers MUST set `schema_version`; consumers MUST reject an artifact
+  whose `schema_version` isn't in a compatibility set they recognize,
+  rather than guessing.
 
 ## Extensibility
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://metaxu.dev/spec/assurance-artifact/0.3.0/schema.json",
+  "$id": "https://metaxu.dev/spec/assurance-artifact/2026.9.10/schema.json",
   "title": "Metaxu Assurance Artifact",
   "description": "Machine-readable assurance record for one AI-mediated clinical interaction. See spec/ARTIFACT.md for the prose specification.",
   "type": "object",
@@ -21,7 +21,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "description": "Semantic version of the artifact schema this document conforms to.",
+      "description": "Version of the artifact schema this document conforms to. Calendar-versioned (YYYY.M.D) from 2026.9.10 onward; earlier artifacts carry a semver value (0.1.0/0.2.0/0.3.0). Compatibility is not derived from this string's structure — see metaxu.artifact.SCHEMA_COMPATIBILITY.",
       "pattern": "^\\d+\\.\\d+\\.\\d+$"
     },
     "id": {

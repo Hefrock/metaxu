@@ -27,13 +27,21 @@ short-lived OIDC token minted per run.
 ## Cutting a release
 
 1. Make sure `main` is green and the version is bumped in **both**
-   `pyproject.toml` and `src/metaxu/__init__.py` (`__version__`), the
-   `ARTIFACT_SCHEMA_VERSION` is correct if the schema changed, and
+   `pyproject.toml` and `src/metaxu/__init__.py` (`__version__`) — see
+   [ADR 0003](docs/adr/0003-calendar-versioning.md): versions are
+   calendar-dated (`YYYY.M.D`, no leading zeros — `2026.9.10`, not
+   `2026.09.10`; leading zeros get silently stripped by PEP 440
+   normalization, which would desync the built package's version from
+   the literal string in `__init__.py` and the git tag). Bump
+   `ARTIFACT_SCHEMA_VERSION` in `src/metaxu/artifact.py` to the same
+   value, and if this release changes the schema in a way that isn't
+   purely additive, add a **new** entry to `SCHEMA_COMPATIBILITY` there
+   rather than adding the version to the existing one. Make sure
    `CHANGELOG.md` has an entry for the version.
 2. Tag and push:
    ```bash
-   git tag v0.3.0        # must match the package version exactly
-   git push origin v0.3.0
+   git tag v2026.9.10        # must match the package version exactly
+   git push origin v2026.9.10
    ```
 3. The workflow runs: it builds the sdist and wheel, runs `twine check`,
    asserts the tag matches `metaxu.__version__`, and (after any required

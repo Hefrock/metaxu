@@ -8,7 +8,7 @@ The original vision called for a *knowledge graph of reasoning* —
 — rather than a flat log. This module derives exactly that graph from an
 artifact's event stream. The artifact stays the single source of truth
 (the graph adds no artifact fields and needs no schema change); the graph
-is a *view* any consumer can rebuild from any 0.3.0 artifact.
+is a *view* any consumer can rebuild from any artifact.
 
 Node types: ``question``, ``answer``, ``claim``, ``resource`` (a
 provenance record), ``coding`` (a terminology reference with its
