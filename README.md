@@ -37,15 +37,16 @@ consumer — a clinician, a dashboard, a CI pipeline, an auditor — answer:
 
 ## Status
 
-`0.3.0` (release candidate, not yet published) — a working reference SDK
-with every core component from the founding vision implemented
-(provenance, policy, safety, trust, terminology, evidence graph,
-correlation/merge, governance, drift, replay), plus three adapters (MCP,
-OpenTelemetry, CDS Hooks). Validated end-to-end against
-[`docs/USE_CASES.md`](docs/USE_CASES.md). APIs and the artifact schema
-may still change before `1.0`. Feedback and design discussion are the
-point of publishing this early. See [CHANGELOG.md](CHANGELOG.md) for the
-release history and [RELEASING.md](RELEASING.md) for how releases are cut.
+[`0.3.0`](https://pypi.org/project/metaxu/) — published on PyPI — a
+working reference SDK with every core component from the founding vision
+implemented (provenance, policy, safety, trust, terminology, evidence
+graph, correlation/merge, governance, drift, replay), plus four adapters
+(MCP, OpenTelemetry, CDS Hooks, LLM API gateway). Validated end-to-end
+against [`docs/USE_CASES.md`](docs/USE_CASES.md). APIs and the artifact
+schema may still change before `1.0`. Feedback and design discussion are
+still very much the point at this stage. See [CHANGELOG.md](CHANGELOG.md)
+for the release history and [RELEASING.md](RELEASING.md) for how releases
+are cut.
 
 ## What's here
 

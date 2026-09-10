@@ -27,11 +27,11 @@ produced under).
 
 ## [0.3.0] — 2026-08-16
 
-First release candidate. Validated end-to-end against
+First release, published to PyPI via Trusted Publishing (OIDC, no stored
+token) — see [RELEASING.md](RELEASING.md). Validated end-to-end against
 [`docs/USE_CASES.md`](docs/USE_CASES.md) (all five use cases, including a
-real run on NixOS / Python 3.14.6 outside the CI test matrix). Pending
-the PyPI trusted-publisher setup and tag push — see
-[RELEASING.md](RELEASING.md).
+real run on NixOS / Python 3.14.6 outside the CI test matrix) before the
+tag was pushed.
 
 ### Added
 - **Terminology validation** ([ADR 0001](docs/adr/0001-terminology-validation.md)):
