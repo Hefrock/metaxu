@@ -25,7 +25,7 @@ need to know how the underlying AI system works.
 
 | Field | Required | Description |
 |---|---|---|
-| `schema_version` | yes | Semver of this specification the document conforms to. |
+| `schema_version` | yes | Version of this specification the document conforms to — see [Versioning](#versioning) below. |
 | `id` | yes | Globally unique artifact identifier. |
 | `created_at` | yes | ISO-8601 timestamp of artifact creation. |
 | `question` | yes | The clinical question or task posed to the AI system. |
@@ -133,8 +133,10 @@ by one:
    never silently resolved: the first non-null value in merge order wins
    and every losing value is preserved under
    `metadata["dev.metaxu/merge_conflicts"]` with its source observer.
-4. Merging requires identical `interaction_id`s and the same major
-   schema version; anything else is an error, not a best effort.
+4. Merging requires identical `interaction_id`s and mutually compatible
+   `schema_version`s (see [Versioning](#versioning) —
+   `metaxu.artifact.SCHEMA_COMPATIBILITY`); anything else is an error,
+   not a best effort.
 
 ## Terminology validation
 
@@ -193,8 +195,10 @@ Malformed codes produce a `critical` safety finding and lower the
   they do not recognize rather than failing.
 - The JSON Schema deliberately allows unknown top-level fields and
   unknown event types (they are documented, not enumerated), so schema
-  validation is consistent with the tolerance rules above: a 0.x
-  validator accepts artifacts from any later 0.x producer.
+  validation is consistent with the tolerance rules above: a validator
+  built against one `schema_version` accepts artifacts from any producer
+  whose version falls in the same `SCHEMA_COMPATIBILITY` set (see
+  [Versioning](#versioning)).
 
 ## Integrity
 
