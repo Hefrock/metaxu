@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .artifact import AssuranceArtifact
+from .artifact import AssuranceArtifact, schema_era
 from .events import Event, EventType
 from .policy import PolicyEngine
 from .safety import SafetyContext, SafetyEngine
@@ -46,8 +46,9 @@ def merge_artifacts(
     """Combine partial artifacts sharing one interaction_id and re-evaluate.
 
     Raises ``ValueError`` if fewer than two artifacts are given, any lacks
-    a correlation interaction_id, the ids disagree, or major schema
-    versions differ.
+    a correlation interaction_id, the ids disagree, or the artifacts'
+    schema versions are not mutually compatible (see
+    ``artifact.SCHEMA_COMPATIBILITY``).
     """
     if len(artifacts) < 2:
         raise ValueError("merge requires at least two artifacts")
@@ -61,9 +62,13 @@ def merge_artifacts(
         raise ValueError(
             f"artifacts describe different interactions: {sorted(interaction_ids)}"
         )
-    majors = {a.schema_version.split(".")[0] for a in artifacts}
-    if len(majors) != 1:
-        raise ValueError(f"artifacts have different major schema versions: {sorted(majors)}")
+    eras = {schema_era(a.schema_version) for a in artifacts}
+    if None in eras:
+        unknown = sorted({a.schema_version for a in artifacts if schema_era(a.schema_version) is None})
+        raise ValueError(f"unrecognized schema_version(s), cannot verify compatibility: {unknown}")
+    if len(eras) != 1:
+        versions = sorted({a.schema_version for a in artifacts})
+        raise ValueError(f"artifacts belong to incompatible schema versions: {versions}")
 
     conflicts: list[dict[str, Any]] = []
 

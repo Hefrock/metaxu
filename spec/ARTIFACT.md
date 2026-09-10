@@ -1,6 +1,6 @@
 # Assurance Artifact Specification
 
-**Version:** 0.3.0 (draft)
+**Version:** 2026.9.10 (draft)
 **Schema:** [`src/metaxu/spec/assurance-artifact.schema.json`](../src/metaxu/spec/assurance-artifact.schema.json)
 
 ## Purpose
@@ -25,7 +25,7 @@ need to know how the underlying AI system works.
 
 | Field | Required | Description |
 |---|---|---|
-| `schema_version` | yes | Semver of this specification the document conforms to. |
+| `schema_version` | yes | Version of this specification the document conforms to — see [Versioning](#versioning) below. |
 | `id` | yes | Globally unique artifact identifier. |
 | `created_at` | yes | ISO-8601 timestamp of artifact creation. |
 | `question` | yes | The clinical question or task posed to the AI system. |
@@ -133,8 +133,10 @@ by one:
    never silently resolved: the first non-null value in merge order wins
    and every losing value is preserved under
    `metadata["dev.metaxu/merge_conflicts"]` with its source observer.
-4. Merging requires identical `interaction_id`s and the same major
-   schema version; anything else is an error, not a best effort.
+4. Merging requires identical `interaction_id`s and mutually compatible
+   `schema_version`s (see [Versioning](#versioning) —
+   `metaxu.artifact.SCHEMA_COMPATIBILITY`); anything else is an error,
+   not a best effort.
 
 ## Terminology validation
 
@@ -166,11 +168,22 @@ Malformed codes produce a `critical` safety finding and lower the
 
 ## Versioning
 
-- The spec follows **semver**. Within a major version, fields are only
-  ever *added* (never removed or repurposed), so a `0.x`/`1.x` consumer
-  can read any artifact of the same major version.
-- Producers MUST set `schema_version`; consumers MUST reject artifacts
-  with a higher major version than they understand.
+- `schema_version` is **calendar-versioned** (`YYYY.M.D`, e.g. `2026.9.10`)
+  starting with the release that introduced this section; earlier
+  artifacts carry a semver value (`0.1.0`/`0.2.0`/`0.3.0`) from before the
+  switch. See [ADR 0003](../docs/adr/0003-calendar-versioning.md) for why.
+- Within a compatibility set, fields are only ever *added* (never removed
+  or repurposed) — the same rule as before, just no longer expressed as a
+  "major version" parsed out of the string, since a calendar date has no
+  such structure. Compatibility is instead an explicit, code-maintained
+  set of known-compatible version strings
+  (`metaxu.artifact.SCHEMA_COMPATIBILITY`): every version in one set
+  differs from every other only by additive change, spanning both the
+  semver and CalVer eras until a genuinely breaking change ever requires
+  starting a new set.
+- Producers MUST set `schema_version`; consumers MUST reject an artifact
+  whose `schema_version` isn't in a compatibility set they recognize,
+  rather than guessing.
 
 ## Extensibility
 
@@ -182,8 +195,10 @@ Malformed codes produce a `critical` safety finding and lower the
   they do not recognize rather than failing.
 - The JSON Schema deliberately allows unknown top-level fields and
   unknown event types (they are documented, not enumerated), so schema
-  validation is consistent with the tolerance rules above: a 0.x
-  validator accepts artifacts from any later 0.x producer.
+  validation is consistent with the tolerance rules above: a validator
+  built against one `schema_version` accepts artifacts from any producer
+  whose version falls in the same `SCHEMA_COMPATIBILITY` set (see
+  [Versioning](#versioning)).
 
 ## Integrity
 

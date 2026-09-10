@@ -3,14 +3,32 @@
 All notable changes to Metaxu are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 versions the [Assurance Artifact schema](spec/ARTIFACT.md) and the Python
-package together under [semantic versioning](https://semver.org/).
+package together, calendar-dated (`YYYY.M.D`) as of `2026.9.10` — see
+[ADR 0003](docs/adr/0003-calendar-versioning.md) for why the scheme moved
+off semantic versioning, and `metaxu.artifact.SCHEMA_COMPATIBILITY` for
+how schema compatibility is decided now that the version string itself
+carries no major/minor/patch structure to parse.
 
-`0.3.0` is the first release published to PyPI — see
+`0.3.0` was the first release published to PyPI — see
 [RELEASING.md](RELEASING.md). The `0.1.0` and `0.2.0` entries record the
 pre-publication development history (the schema versions artifacts were
-produced under).
+produced under); all three predate the move to calendar versioning.
 
 ## [Unreleased]
+
+### Changed
+- **Versioning scheme: semver → CalVer (`YYYY.M.D`).** The package
+  version, `ARTIFACT_SCHEMA_VERSION`, and git tags all move from
+  `0.3.0`-style semver to a calendar date, starting at `2026.9.10` — see
+  [ADR 0003](docs/adr/0003-calendar-versioning.md). Schema compatibility
+  (previously "same major version") is now an explicit, code-maintained
+  set of mutually-compatible version strings
+  (`metaxu.artifact.SCHEMA_COMPATIBILITY`, checked via the new
+  `schema_era()` helper) rather than something parsed out of the version
+  string — `merge_artifacts()` uses it in place of the old
+  major-version comparison. The pre-CalVer `0.1.0`/`0.2.0`/`0.3.0`
+  versions and `2026.9.10` are all in the same compatibility set: the
+  format change was not itself a breaking schema change.
 
 ### Added
 - **LLM API gateway adapter** (`metaxu.adapters.llm_gateway`, Anthropic

@@ -18,7 +18,27 @@ from typing import Any
 from .events import Event, utcnow
 from .provenance import ProvenanceRecord, content_hash
 
-ARTIFACT_SCHEMA_VERSION = "0.3.0"
+ARTIFACT_SCHEMA_VERSION = "2026.9.10"
+
+# Schema versions that are mutually compatible for merge/replay purposes:
+# every change between the versions within one set has been additive only
+# (fields added, never removed, renamed, or retyped — see CHANGELOG.md).
+# A future breaking change starts a *new* set of its own; artifacts whose
+# schema_version falls in different sets are never merged or replayed
+# against each other silently (see merge_artifacts()).
+#
+# The version format changed from semver to CalVer (YYYY.MM.DD) at
+# "2026.9.10" without a compatibility break, so both eras share one set
+# here — see docs/adr/0003-calendar-versioning.md for the rationale and
+# why compatibility no longer parses a "major version" out of the string.
+SCHEMA_COMPATIBILITY: tuple[frozenset[str], ...] = (
+    frozenset({"0.1.0", "0.2.0", "0.3.0", "2026.9.10"}),
+)
+
+
+def schema_era(version: str) -> frozenset[str] | None:
+    """The compatibility set ``version`` belongs to, or ``None`` if unknown."""
+    return next((era for era in SCHEMA_COMPATIBILITY if version in era), None)
 
 
 @dataclass

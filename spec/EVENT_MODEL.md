@@ -1,6 +1,6 @@
 # Event Model
 
-**Version:** 0.3.0 (draft)
+**Version:** 2026.9.10 (draft)
 
 Everything Metaxu asserts about an interaction derives from an ordered
 stream of **events**. The model is deliberately minimal so that any

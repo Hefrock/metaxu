@@ -134,6 +134,48 @@ def test_merge_requires_two_artifacts():
         merge_artifacts([sdk_partial()])
 
 
+def test_merge_allows_pre_and_post_calver_schema_versions_together():
+    """0.x.y (semver) and YYYY.M.D (CalVer) artifacts share one
+    compatibility set — the format change at "2026.9.10" was not itself a
+    breaking schema change."""
+    a = sdk_partial()
+    b = proxy_partial()
+    a.schema_version = "0.2.0"
+    b.schema_version = "2026.9.10"
+    merged = merge_artifacts([a, b])
+    assert merged.verify_integrity()
+
+
+def test_merge_rejects_unrecognized_schema_version():
+    a = sdk_partial()
+    b = proxy_partial()
+    b.schema_version = "99.0.0"
+    with pytest.raises(ValueError, match="unrecognized schema_version"):
+        merge_artifacts([a, b])
+
+
+def test_merge_rejects_incompatible_schema_eras():
+    from metaxu.artifact import SCHEMA_COMPATIBILITY
+
+    a = sdk_partial()
+    b = proxy_partial()
+    a.schema_version = next(iter(SCHEMA_COMPATIBILITY[0]))
+    # A hypothetical future breaking era that isn't in the same set as the
+    # current one, even though both are individually "known" — exercises
+    # the len(eras) != 1 branch, not just the "totally unknown" branch.
+    other_era = frozenset({"3000.1.1"})
+    import metaxu.artifact as artifact_module
+
+    original = artifact_module.SCHEMA_COMPATIBILITY
+    artifact_module.SCHEMA_COMPATIBILITY = original + (other_era,)
+    try:
+        b.schema_version = "3000.1.1"
+        with pytest.raises(ValueError, match="incompatible schema versions"):
+            merge_artifacts([a, b])
+    finally:
+        artifact_module.SCHEMA_COMPATIBILITY = original
+
+
 def test_scalar_conflicts_are_preserved_not_silently_resolved():
     a = sdk_partial()
     b = sdk_partial()

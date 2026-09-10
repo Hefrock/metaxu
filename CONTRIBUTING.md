@@ -67,7 +67,9 @@ metaxu validate examples/anticoagulation/out/diligent-artifact.json
 - If you change `src/metaxu/spec/assurance-artifact.schema.json`, update
   `spec/ARTIFACT.md` in the same PR, and bump `ARTIFACT_SCHEMA_VERSION`
   in `src/metaxu/artifact.py` per the versioning rules in `spec/ARTIFACT.md`
-  (additive within a major version; breaking changes require a major bump).
+  (additive changes stay in the current `SCHEMA_COMPATIBILITY` set;
+  anything non-additive starts a new one — see
+  [ADR 0003](docs/adr/0003-calendar-versioning.md)).
 - CI (`.github/workflows/ci.yml`) runs the test matrix and an end-to-end
   demo/validation job; both must pass.
 
