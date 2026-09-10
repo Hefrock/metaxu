@@ -37,15 +37,16 @@ consumer — a clinician, a dashboard, a CI pipeline, an auditor — answer:
 
 ## Status
 
-`0.3.0` (release candidate, not yet published) — a working reference SDK
-with every core component from the founding vision implemented
-(provenance, policy, safety, trust, terminology, evidence graph,
-correlation/merge, governance, drift, replay), plus three adapters (MCP,
-OpenTelemetry, CDS Hooks). Validated end-to-end against
-[`docs/USE_CASES.md`](docs/USE_CASES.md). APIs and the artifact schema
-may still change before `1.0`. Feedback and design discussion are the
-point of publishing this early. See [CHANGELOG.md](CHANGELOG.md) for the
-release history and [RELEASING.md](RELEASING.md) for how releases are cut.
+[`0.3.0`](https://pypi.org/project/metaxu/) — published on PyPI — a
+working reference SDK with every core component from the founding vision
+implemented (provenance, policy, safety, trust, terminology, evidence
+graph, correlation/merge, governance, drift, replay), plus four adapters
+(MCP, OpenTelemetry, CDS Hooks, LLM API gateway). Validated end-to-end
+against [`docs/USE_CASES.md`](docs/USE_CASES.md). APIs and the artifact
+schema may still change before `1.0`. Feedback and design discussion are
+still very much the point at this stage. See [CHANGELOG.md](CHANGELOG.md)
+for the release history and [RELEASING.md](RELEASING.md) for how releases
+are cut.
 
 ## What's here
 
@@ -213,6 +214,37 @@ checks fail — so the assurance verdict reaches the clinician in the EHR,
 not just the audit log. The request's `fhirAuthorization` bearer token is
 never recorded. See `examples/cdshooks/`.
 
+## LLM API gateway: closing the answer/claims blind spot
+
+A gateway sits in front of the model API itself — the one boundary that
+sees the prompt, the model's own answer text, and every tool call it
+proposes, closing exactly what the MCP proxy structurally can't see.
+First provider: the Anthropic Messages API (stdlib-only — no dependency
+on the `anthropic` package):
+
+```python
+from metaxu.adapters.llm_gateway import record_exchange
+
+response = client.messages.create(model="claude-opus-5", messages=messages, tools=tools)
+artifact = record_exchange(
+    {"model": "claude-opus-5", "messages": messages}, response,
+    policy_engine=engine, tag_map={"get_labs": ["platelet_count"]},
+)
+```
+
+Because the Messages API is stateless, `request["messages"]` carries the
+*entire* prior turn history — so calling `record_exchange` with the final
+response of a tool-use loop recovers the whole tool-call trace (both the
+intent and, when the caller echoed a `tool_result` block back, the
+result) for the conversation so far, not just the latest turn. It still
+carries no independent provenance for that result (no source-system
+identity, hash, or retrieval timestamp) the way the MCP proxy does —
+composing a gateway partial with an MCP-proxy partial is what adds that
+layer, demonstrated end-to-end in `examples/llm_gateway/`. A
+`stop_reason == "refusal"` response is recorded as a note rather than an
+answer, so `check_missing_answer` flags it correctly. See
+[ADR 0002](docs/adr/0002-adapter-strategy.md) for the adapter roadmap.
+
 ## Composing observers: correlation and merge
 
 No single interception point sees a whole interaction, so artifacts are
@@ -234,9 +266,10 @@ pass on the merged view. Conflicting observations are never silently
 resolved; they're preserved in `metadata["dev.metaxu/merge_conflicts"]`.
 
 MCP is one adapter, not the interface: the core is transport-neutral, and
-adapters (`metaxu.adapters`) attach it to specific boundaries — MCP
-today; OpenTelemetry, CDS Hooks, and LLM gateways are the planned next
-vantage points.
+adapters (`metaxu.adapters`) attach it to specific boundaries — MCP,
+OpenTelemetry, CDS Hooks, and the LLM API gateway today; an OpenTelemetry
+*importer* and a CDS Hooks transparent-proxy variant are the planned next
+vantage points (see the Roadmap below).
 
 Policies are declarative data, shareable across institutions:
 
@@ -439,9 +472,10 @@ the versioning discipline — is recorded in
 - Adapter roadmap (priority order in [ADR 0002](docs/adr/0002-adapter-strategy.md)):
   - [x] OpenTelemetry **exporter** (artifact → spans, `gen_ai.*` conventions, PHI-safe by default)
   - [x] CDS Hooks adapter (assured decision-support services; prefetch → provenance, cards → answer)
+  - [x] LLM API gateway adapter (Anthropic Messages API; closes the answer/claims blind spot without SDK adoption)
   - [ ] OpenTelemetry importer (spans → assurance events)
   - [ ] CDS Hooks transparent proxy variant (evaluate third-party services you don't control)
-  - [ ] LLM API gateway adapter (closes the answer/claims blind spot without SDK adoption)
+  - [ ] LLM API gateway: additional providers beyond Anthropic (e.g. OpenAI)
 - [ ] Detached-signature envelope for artifact authentication
 - [x] Terminology validation — format/checksum (SNOMED / LOINC / RxNorm / UCUM / ICD) + pluggable resolver interface ([ADR 0001](docs/adr/0001-terminology-validation.md))
 - [x] Evidence graph as a traversable structure (multi-hop chains, dependents tracing, Mermaid/DOT export)
