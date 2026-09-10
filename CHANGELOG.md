@@ -25,6 +25,13 @@ produced under).
   demonstrates the composition thesis: paired with an MCP-proxy partial
   and merged, per [ADR 0002](docs/adr/0002-adapter-strategy.md).
 
+### Fixed
+- LLM gateway question extraction no longer stops at the most recent
+  `user`-role message when it's a content-less `tool_result` envelope
+  (the normal shape of a tool-use loop's follow-up turn) — it now walks
+  back to the actual question text instead of falling back to
+  `"(no user message)"`.
+
 ## [0.3.0] — 2026-08-16
 
 First release, published to PyPI via Trusted Publishing (OIDC, no stored

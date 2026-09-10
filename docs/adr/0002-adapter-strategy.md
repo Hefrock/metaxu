@@ -99,8 +99,12 @@ contributions, one framework at a time, not as core roadmap.
 
 ## Consequences
 
-- Next build is the OTel exporter; it rides an existing standard and the
-  codebase already leans toward it.
+- *Status update:* all three roadmap adapters have shipped, in the order
+  decided below — OTel exporter, then CDS Hooks (service-side), then the
+  LLM API gateway (Anthropic). What's left is the second half of each:
+  the OTel importer, the CDS Hooks transparent-proxy variant, and a
+  second LLM gateway provider — plus the deferred agent-framework
+  callbacks below, still not core roadmap.
 - Each new adapter should ship with a composition example (its partial
   merged with an MCP-proxy partial) so the multi-observer story is
   demonstrated, not just asserted.
